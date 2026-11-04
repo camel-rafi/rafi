@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rafi"
+version = "0.1.0"
+description = "레이더-RF 융합 기반 불법촬영기기 설치 행위 탐지 시스템"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+# 담당 모듈에 맞게 설치: pip install -e ".[dev,radar]"
+dev = ["pytest>=8", "ruff>=0.6"]
+radar = ["numpy", "pandas", "matplotlib"]
+rf = ["scapy"]
+dashboard = []  # 기술 스택 결정 후 추가
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src"]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]  # 한글은 폭 2로 계산되어 줄 길이 검사에서 제외

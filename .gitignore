@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 비밀 정보
+.env
+
+# 실험 데이터 (Git에 올리지 않음, data/README.md 참고)
+data/*
+!data/README.md
+*.pcr
+*.pcap
+*.pcapng
+*.cap
+
+# 에디터 / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
