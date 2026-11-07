@@ -7,7 +7,7 @@ name = "rafi"
 version = "0.1.0"
 description = "레이더-RF 융합 기반 불법촬영기기 설치 행위 탐지 시스템"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["pydantic>=2.11"]
 
 [project.optional-dependencies]
 # 담당 모듈에 맞게 설치: pip install -e ".[dev,radar]"
