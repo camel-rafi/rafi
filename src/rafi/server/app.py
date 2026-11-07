@@ -14,11 +14,16 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from rafi.common.messages import (
+    Detection,
     DeviceStatus,
+    RadarDetectionMessage,
     RadarStatusMessage,
     RfStatusMessage,
+    RfWindowMessage,
     SensorMessage,
 )
+from rafi.rf.judge import RfJudge
+from rafi.server.alerts import record_detection
 from rafi.server.config import load_config
 from rafi.server.devices import DeviceTracker
 from rafi.server.storage import Storage
@@ -33,6 +38,14 @@ def create_app(
 ) -> FastAPI:
     config = load_config(config_path)
     devices = DeviceTracker(config.devices, timedelta(seconds=config.device_timeout_sec))
+    rf_judge = RfJudge()
+
+    def detections_from(message: SensorMessage) -> list[Detection]:
+        if isinstance(message, RadarDetectionMessage):
+            return [message.payload]
+        if isinstance(message, RfWindowMessage):
+            return rf_judge.update(message.device_id, message.payload)
+        return []
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -60,13 +73,20 @@ def create_app(
         if message.type.split(".")[0] != device.kind:
             raise HTTPException(status_code=403, detail="장비 종류와 맞지 않는 메시지입니다")
 
-        accepted = request.app.state.storage.save_message(message, raw.decode("utf-8"))
+        storage = request.app.state.storage
+        now = datetime.now().astimezone()
+        with storage.transaction():  # 메시지는 저장됐는데 경보만 빠지는 일이 없도록 함께 처리한다
+            accepted = storage.save_message(message, raw.decode("utf-8"))
+            if accepted:
+                for detection in detections_from(message):
+                    record_detection(storage, detection, device.room, config, now)
+
         if accepted and isinstance(message, RadarStatusMessage | RfStatusMessage):
             devices.update(
                 message.device_id,
                 message.payload.sensor_ok,
                 message.payload.error,
-                now=datetime.now().astimezone(),
+                now=now,
             )
         return {"status": "accepted" if accepted else "duplicate"}
 
