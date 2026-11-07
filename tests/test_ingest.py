@@ -14,8 +14,8 @@ URL = "/api/v1/messages"
 JSON_HEADER = {"Content-Type": "application/json"}
 REPO_CONFIG = Path(__file__).parents[1] / "config" / "rafi.yaml"
 
-RADAR_STATUS = {"running": True, "fps": 20.1, "error": None}
-RF_STATUS = {"capturing": True, "channel": 6, "dropped_frames": 0, "error": None}
+RADAR_STATUS = {"sensor_ok": True, "fps": 20.1, "error": None}
+RF_STATUS = {"sensor_ok": True, "channel": 6, "dropped_frames": 0, "error": None}
 
 
 def message(type_: str = "radar.status", payload: dict = RADAR_STATUS, **overrides) -> dict:
@@ -172,8 +172,22 @@ def test_repo_config_is_valid():
 def test_device_with_unknown_room_is_rejected(tmp_path):
     path = tmp_path / "bad.yaml"
     path.write_text(
-        "rooms: {stall-1: {name: 칸 1}}\ndevices: {radar-1: {kind: radar, room: stall-2}}\n",
+        "rooms: {stall-1: {name: 칸 1}}\n"
+        "devices: {radar-1: {kind: radar, room: stall-2}}\n"
+        "device_timeout_sec: 30\n",
         encoding="utf-8",
     )
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="stall-2"):
+        load_config(path)
+
+
+@pytest.mark.parametrize("timeout", ["device_timeout_sec: 0\n", ""])
+def test_invalid_or_missing_timeout_is_rejected(tmp_path, timeout):
+    path = tmp_path / "bad.yaml"
+    path.write_text(
+        "rooms: {stall-1: {name: 칸 1}}\n"
+        "devices: {radar-1: {kind: radar, room: stall-1}}\n" + timeout,
+        encoding="utf-8",
+    )
+    with pytest.raises(ValidationError, match="device_timeout_sec"):
         load_config(path)

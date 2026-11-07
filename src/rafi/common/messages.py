@@ -67,7 +67,7 @@ class RadarDetection(Detection):
 
 
 class RadarStatus(Model):
-    running: bool
+    sensor_ok: bool  # 센서에서 데이터를 정상적으로 받고 있는지
     fps: NonNegativeFloat
     error: str | None = None
 
@@ -81,7 +81,7 @@ class RadarOccupancy(Model):
 
 
 class RfStatus(Model):
-    capturing: bool
+    sensor_ok: bool  # 센서에서 데이터를 정상적으로 받고 있는지
     channel: PositiveInt
     dropped_frames: NonNegativeInt
     error: str | None = None

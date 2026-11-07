@@ -76,10 +76,10 @@ def envelope(type_: str, payload: dict, **overrides) -> dict:
 @pytest.mark.parametrize(
     ("type_", "payload"),
     [
-        ("radar.status", {"running": True, "fps": 20.1, "error": None}),
+        ("radar.status", {"sensor_ok": True, "fps": 20.1, "error": None}),
         ("radar.occupancy", {"person_count": 1, "zones": ["vent"]}),
         ("radar.detection", DETECTION),
-        ("rf.status", {"capturing": True, "channel": 6, "dropped_frames": 0, "error": None}),
+        ("rf.status", {"sensor_ok": True, "channel": 6, "dropped_frames": 0, "error": None}),
         ("rf.window", RF_WINDOW),
     ],
 )
@@ -186,12 +186,12 @@ def test_device_status_allows_never_seen_device():
 @pytest.mark.parametrize(
     ("type_", "payload"),
     [
-        ("radar.status", {"running": True, "fps": -1}),
+        ("radar.status", {"sensor_ok": True, "fps": -1}),
         ("radar.status", {"fps": 20.1}),
         ("radar.occupancy", {"person_count": -1, "zones": []}),
         ("radar.occupancy", {"person_count": 1, "zones": [], "room": "stall-1"}),
-        ("rf.status", {"capturing": True, "channel": 0, "dropped_frames": 0}),
-        ("rf.status", {"capturing": True, "channel": 6, "dropped_frames": -1}),
+        ("rf.status", {"sensor_ok": True, "channel": 0, "dropped_frames": 0}),
+        ("rf.status", {"sensor_ok": True, "channel": 6, "dropped_frames": -1}),
     ],
 )
 def test_invalid_status_and_occupancy_are_rejected(type_, payload):

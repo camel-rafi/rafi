@@ -5,6 +5,7 @@
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
@@ -12,8 +13,14 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from rafi.common.messages import SensorMessage
+from rafi.common.messages import (
+    DeviceStatus,
+    RadarStatusMessage,
+    RfStatusMessage,
+    SensorMessage,
+)
 from rafi.server.config import load_config
+from rafi.server.devices import DeviceTracker
 from rafi.server.storage import Storage
 
 DEFAULT_CONFIG_PATH = Path("config/rafi.yaml")
@@ -25,6 +32,7 @@ def create_app(
     db_path: str | Path = DEFAULT_DB_PATH,
 ) -> FastAPI:
     config = load_config(config_path)
+    devices = DeviceTracker(config.devices, timedelta(seconds=config.device_timeout_sec))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -53,7 +61,18 @@ def create_app(
             raise HTTPException(status_code=403, detail="장비 종류와 맞지 않는 메시지입니다")
 
         accepted = request.app.state.storage.save_message(message, raw.decode("utf-8"))
+        if accepted and isinstance(message, RadarStatusMessage | RfStatusMessage):
+            devices.update(
+                message.device_id,
+                message.payload.sensor_ok,
+                message.payload.error,
+                now=datetime.now().astimezone(),
+            )
         return {"status": "accepted" if accepted else "duplicate"}
+
+    @app.get("/api/v1/devices")
+    async def list_devices() -> list[DeviceStatus]:
+        return devices.statuses(now=datetime.now().astimezone())
 
     @app.get("/api/v1/messages")
     async def list_messages(

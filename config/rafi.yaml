@@ -10,3 +10,6 @@ devices:
   pi-1:
     kind: rf
     room: stall-1
+
+# 상태 메시지(10초 주기)가 이 시간 동안 없으면 끊김으로 표시
+device_timeout_sec: 30

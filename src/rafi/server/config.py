@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Self
 
 import yaml
-from pydantic import model_validator
+from pydantic import PositiveInt, model_validator
 
 from rafi.common.messages import Model, Source
 
@@ -21,6 +21,7 @@ class DeviceConfig(Model):
 class Config(Model):
     rooms: dict[str, RoomConfig]
     devices: dict[str, DeviceConfig]
+    device_timeout_sec: PositiveInt  # 상태 메시지가 이 시간 동안 없으면 끊김으로 본다
 
     @model_validator(mode="after")
     def check_device_rooms(self) -> Self:
