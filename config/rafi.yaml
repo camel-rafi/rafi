@@ -1,0 +1,12 @@
+# 서버가 인식하는 칸과 장비 목록
+rooms:
+  stall-1:
+    name: 칸 1
+
+devices:
+  radar-1:
+    kind: radar
+    room: stall-1
+  pi-1:
+    kind: rf
+    room: stall-1

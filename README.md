@@ -40,7 +40,9 @@ src/rafi/
   radar/      설치 행위 판단, 서버 전송 (레이더 PC)
   rf/         무선랜 프레임 캡처, 기기별 1초 집계, 서버 전송 (Raspberry Pi)
   fusion/     같은 사건 묶기, L1/L2/L3 등급 판단 (중앙 서버)
+  server/     수신 API, 저장소 (중앙 서버)
   dashboard/  관리자 대시보드
+config/       서버가 인식하는 칸과 장비 목록
 tests/        자동 테스트 (CI에서 실행)
 experiments/  시나리오 정의, 실험 설정
 data/         로컬 데이터 위치 (Git에 올리지 않음, data/README.md 참고)
@@ -59,7 +61,7 @@ source .venv/bin/activate
 # Windows (PowerShell)
 .venv\Scripts\Activate.ps1
 
-pip install -e ".[dev]"      # 공통 + 테스트 도구
+pip install -e ".[dev,server]"   # 테스트 도구 + 중앙 서버
 pytest                       # 테스트가 통과하면 세팅 완료
 ```
 
@@ -68,7 +70,12 @@ pytest                       # 테스트가 통과하면 세팅 완료
 ```bash
 pip install -e ".[dev,radar]"       # 레이더 담당 (PC)
 pip install -e ".[rf]"              # RF 담당 (Raspberry Pi)
-pip install -e ".[dev,dashboard]"   # 대시보드 담당
+```
+
+중앙 서버는 저장소 폴더에서 실행합니다.
+
+```bash
+uvicorn --factory rafi.server.app:create_app --host 0.0.0.0 --port 8000
 ```
 
 환경 변수는 `.env.example`을 복사해 `.env`로 만들어 채웁니다. `.env`는 Git에 올라가지 않습니다.
