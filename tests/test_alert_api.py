@@ -35,7 +35,7 @@ def envelope(type_: str, payload: dict, device_id: str) -> dict:
     }
 
 
-def radar_message(start: datetime, roi: str = "vent") -> dict:
+def radar_message(start: datetime, roi: str = "dispenser_top") -> dict:
     payload = {
         "source": "radar",
         "event_start": start.isoformat(),
@@ -87,7 +87,7 @@ def test_alert_contains_room_and_evidence(client):
     assert alert["grade"] == "L1"
     assert alert["status"] == "unacked"
     assert alert["room"] == "stall-1"
-    assert alert["roi"] == "vent"
+    assert alert["roi"] == "dispenser_top"
     assert alert["acked_at"] is None
     assert alert["evidence"] == [
         {"source": "radar", "score": 0.8, "method": "radar-v1", "reasons": ["천장 부근 정지"]}
@@ -192,8 +192,8 @@ def test_promotion_is_pushed_as_updated(client):
 
 
 def test_rf_promoting_two_alerts_pushes_both(client):
-    client.post(MESSAGES, json=radar_message(local(12), "vent"))
-    client.post(MESSAGES, json=radar_message(local(12), "shelf"))
+    client.post(MESSAGES, json=radar_message(local(12), "dispenser_top"))
+    client.post(MESSAGES, json=radar_message(local(12), "sanbox_top"))
 
     with client.websocket_connect(WS) as ws:
         send_rf_transmission(client, local(12))

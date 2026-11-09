@@ -32,7 +32,7 @@ def envelope(type_: str, payload: dict, device_id: str) -> dict:
     }
 
 
-def radar_message(start: datetime, roi: str = "vent", seconds: int = 10) -> dict:
+def radar_message(start: datetime, roi: str = "dispenser_top", seconds: int = 10) -> dict:
     payload = {
         "source": "radar",
         "event_start": start.isoformat(),
@@ -95,7 +95,7 @@ def client(db_path: Path):
 
 def test_radar_detection_creates_l1_with_room_from_config(client, db_path):
     client.post(URL, json=radar_message(local(12)))
-    assert alerts(db_path) == [("L1", "unacked", "stall-1", "vent", 0)]
+    assert alerts(db_path) == [("L1", "unacked", "stall-1", "dispenser_top", 0)]
     assert detections(db_path) == [(1, "radar")]
 
 
@@ -128,14 +128,14 @@ def test_duplicate_rf_window_does_not_count_toward_duration(client, db_path):
 def test_rf_first_then_radar_promotes_to_l2(client, db_path):
     send_rf_transmission(client, local(12))
     client.post(URL, json=radar_message(local(12)))
-    assert alerts(db_path) == [("L2", "unacked", "stall-1", "vent", 0)]
+    assert alerts(db_path) == [("L2", "unacked", "stall-1", "dispenser_top", 0)]
     assert detections(db_path) == [(1, "rf"), (1, "radar")]
 
 
 def test_radar_first_then_rf_promotes_to_l2(client, db_path):
     client.post(URL, json=radar_message(local(12)))
     send_rf_transmission(client, local(12))
-    assert alerts(db_path) == [("L2", "unacked", "stall-1", "vent", 0)]
+    assert alerts(db_path) == [("L2", "unacked", "stall-1", "dispenser_top", 0)]
 
 
 def test_acked_alert_is_not_grouped(client, db_path):
@@ -178,7 +178,7 @@ def test_failure_during_fusion_rolls_back_message(db_path, monkeypatch):
 
 def test_alert_in_cleaning_window_is_marked_without_changing_grade(client, db_path):
     client.post(URL, json=radar_message(local(10, 10)))
-    assert alerts(db_path) == [("L1", "unacked", "stall-1", "vent", 1)]
+    assert alerts(db_path) == [("L1", "unacked", "stall-1", "dispenser_top", 1)]
 
 
 def test_cleaning_mark_follows_earliest_event_of_alert(client, db_path):

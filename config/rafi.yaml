@@ -7,7 +7,46 @@ rooms:
     size_cm: {x: 97, y: 137.5, z: 228}
 
     # 경보 구역. 키가 레이더가 보내는 roi 값이며, 여기에 없는 roi는 거부한다
+    # 좌표는 레이더 설정(config/radar/stall_*.json)의 구역과 같게 유지한다
     zones:
+      dispenser_low:
+        name: 휴지 디스펜서 아래
+        x_cm: [0, 32]
+        y_cm: [60, 95]
+        z_cm: [55, 95]
+      dispenser_top:
+        name: 휴지 디스펜서 위
+        x_cm: [0, 32]
+        y_cm: [65, 115]
+        z_cm: [95, 135]
+      sanbox_low:
+        name: 위생용품 함 아래
+        x_cm: [82, 97]
+        y_cm: [39, 75]
+        z_cm: [55, 95]
+      sanbox_top:
+        name: 위생용품 함 위
+        x_cm: [85, 97]
+        y_cm: [39, 62]
+        z_cm: [95, 145]
+      under_shelf:
+        name: 선반 아래
+        x_cm: [0, 97]
+        y_cm: [0, 30]
+        z_cm: [115, 142]
+      high:
+        name: 높은 곳 (환풍구, 벽 위)
+        x_cm: [0, 97]
+        y_cm: [0, 110]
+        z_cm: [165, 228]
+      stall:
+        name: 칸 전체
+        x_cm: [0, 97]
+        y_cm: [0, 137.5]
+        z_cm: [0, 228]
+
+    # 평면도 배경
+    fixtures:
       vent:
         name: 환풍구
         x_cm: [90, 97]  # 이 칸 쪽으로 걸친 폭은 미측정
@@ -28,9 +67,6 @@ rooms:
         x_cm: [82, 97]
         y_cm: [42, 72]
         z_cm: [96, 142]
-
-    # 평면도 배경
-    fixtures:
       toilet:
         name: 변기
         x_cm: [32.5, 64.5]
@@ -46,7 +82,7 @@ devices:
   radar-1:
     kind: radar
     room: stall-1
-    position_cm: {x: 55, y: 23, z: 200}
+    position_cm: {x: 63, y: 23, z: 200}
   pi-1:
     kind: rf
     room: stall-1

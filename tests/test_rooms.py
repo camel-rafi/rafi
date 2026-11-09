@@ -43,22 +43,34 @@ def client(tmp_path: Path):
 # ---------- 레이더 roi ----------
 
 
-@pytest.mark.parametrize("roi", ["vent", "shelf", "dispenser", "sanitary_box"])
+RADAR_ROIS = [
+    "dispenser_low",
+    "dispenser_top",
+    "sanbox_low",
+    "sanbox_top",
+    "under_shelf",
+    "high",
+    "stall",
+]
+
+
+@pytest.mark.parametrize("roi", RADAR_ROIS)
 def test_registered_zone_is_accepted(client, roi):
     assert client.post(MESSAGES, json=detection(roi)).json() == {"status": "accepted"}
 
 
 def test_unknown_zone_is_rejected_without_saving(client):
-    response = client.post(MESSAGES, json=detection("sanitary-box"))
+    response = client.post(MESSAGES, json=detection("sanbox-top"))
 
     assert response.status_code == 422
-    assert "sanitary-box" in response.json()["detail"]
+    assert "sanbox-top" in response.json()["detail"]
     assert client.get(MESSAGES).json() == []
     assert client.get("/api/v1/alerts").json() == []
 
 
-def test_fixture_is_not_a_zone(client):
-    assert client.post(MESSAGES, json=detection("toilet")).status_code == 422
+@pytest.mark.parametrize("fixture", ["toilet", "vent"])
+def test_fixture_is_not_a_zone(client, fixture):
+    assert client.post(MESSAGES, json=detection(fixture)).status_code == 422
 
 
 # ---------- 평면도 API ----------
@@ -68,10 +80,10 @@ def test_rooms_api_returns_layout_and_device_positions(client):
     room = client.get("/api/v1/rooms").json()["stall-1"]
 
     assert room["size_cm"] == {"x": 97, "y": 137.5, "z": 228}
-    assert set(room["zones"]) == {"vent", "shelf", "dispenser", "sanitary_box"}
-    assert room["zones"]["dispenser"]["y_cm"] == [79, 103.5]
-    assert set(room["fixtures"]) == {"toilet", "door"}
-    assert room["devices"]["radar-1"]["position_cm"] == {"x": 55, "y": 23, "z": 200}
+    assert set(room["zones"]) == set(RADAR_ROIS)
+    assert room["zones"]["dispenser_top"]["y_cm"] == [65, 115]
+    assert set(room["fixtures"]) == {"vent", "shelf", "dispenser", "sanitary_box", "toilet", "door"}
+    assert room["devices"]["radar-1"]["position_cm"] == {"x": 63, "y": 23, "z": 200}
     assert room["devices"]["pi-1"]["position_cm"] is None
 
 
@@ -88,13 +100,13 @@ def stall(data: dict) -> dict:
 
 
 def test_repo_config_is_valid():
-    assert "vent" in load_config(REPO_CONFIG).rooms["stall-1"].zones
+    assert "high" in load_config(REPO_CONFIG).rooms["stall-1"].zones
 
 
 def test_zone_outside_room_is_rejected():
     data = repo_config()
-    stall(data)["zones"]["vent"]["x_cm"] = [90, 98]
-    with pytest.raises(ValidationError, match="vent"):
+    stall(data)["zones"]["high"]["x_cm"] = [0, 98]
+    with pytest.raises(ValidationError, match="high"):
         Config.model_validate(data)
 
 
@@ -107,21 +119,21 @@ def test_negative_coordinate_is_rejected():
 
 def test_reversed_range_is_rejected():
     data = repo_config()
-    stall(data)["zones"]["shelf"]["y_cm"] = [22, 0]
+    stall(data)["zones"]["under_shelf"]["y_cm"] = [22, 0]
     with pytest.raises(ValidationError, match="y_cm"):
         Config.model_validate(data)
 
 
 def test_range_needs_two_values():
     data = repo_config()
-    stall(data)["zones"]["shelf"]["z_cm"] = [142]
+    stall(data)["zones"]["under_shelf"]["z_cm"] = [142]
     with pytest.raises(ValidationError, match="z_cm"):
         Config.model_validate(data)
 
 
 def test_same_id_in_zones_and_fixtures_is_rejected():
     data = repo_config()
-    stall(data)["fixtures"]["vent"] = stall(data)["zones"]["vent"]
+    stall(data)["fixtures"]["high"] = stall(data)["zones"]["high"]
     with pytest.raises(ValidationError, match="같은 ID"):
         Config.model_validate(data)
 

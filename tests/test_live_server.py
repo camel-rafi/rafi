@@ -60,7 +60,7 @@ def test_dashboard_receives_messages_over_real_websocket(server_url):
             "source": "radar",
             "event_start": "2026-11-09T14:00:00+09:00",
             "event_end": "2026-11-09T14:00:20+09:00",
-            "roi": "vent",
+            "roi": "dispenser_top",
             "score": 0.8,
             "method": "radar-v1",
             "reasons": [],
@@ -73,4 +73,4 @@ def test_dashboard_receives_messages_over_real_websocket(server_url):
 
     assert response.json() == {"status": "accepted"}
     assert message["type"] == "alert.created"
-    assert message["payload"]["roi"] == "vent"
+    assert message["payload"]["roi"] == "dispenser_top"
