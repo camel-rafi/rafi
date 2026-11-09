@@ -265,7 +265,8 @@ def test_rolled_back_alert_is_not_pushed(tmp_path, monkeypatch):
             client.post(MESSAGES, json=radar_message(local(13)))
             message = ws.receive_json()
 
-    assert message["payload"]["started_at"] == local(13).isoformat()
+    # 문자열로 비교하면 UTC 환경(CI)에서 "Z"와 "+00:00" 표기 차이로 실패한다
+    assert datetime.fromisoformat(message["payload"]["started_at"]) == local(13)
 
 
 # ---------- 멈춘 대시보드 ----------
