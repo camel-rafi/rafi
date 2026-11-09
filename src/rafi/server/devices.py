@@ -27,6 +27,7 @@ class DeviceTracker:
         self._states = {
             device_id: _DeviceState(kind=device.kind) for device_id, device in devices.items()
         }
+        self._published = {device_id: (False, NO_STATUS_ERROR) for device_id in devices}
 
     def update(self, device_id: str, sensor_ok: bool, error: str | None, now: datetime) -> None:
         """상태 메시지를 받았을 때 호출한다."""
@@ -39,6 +40,16 @@ class DeviceTracker:
         return [
             self._status(device_id, state, now) for device_id, state in self._states.items()
         ]
+
+    def changes(self, now: datetime) -> list[DeviceStatus]:
+        """지난 호출 이후 연결 여부나 오류가 바뀐 장비만 돌려준다."""
+        changed = []
+        for status in self.statuses(now):
+            current = (status.online, status.error)
+            if self._published[status.device_id] != current:
+                self._published[status.device_id] = current
+                changed.append(status)
+        return changed
 
     def _status(self, device_id: str, state: _DeviceState, now: datetime) -> DeviceStatus:
         receiving = state.last_seen is not None and now - state.last_seen < self._timeout

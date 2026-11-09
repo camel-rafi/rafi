@@ -164,3 +164,47 @@ def test_duplicate_status_does_not_refresh_last_seen(client):
 def test_rejected_status_does_not_update_device(client):
     client.post("/api/v1/messages", json=message("rf.status", RF_STATUS))  # radar-1이 RF 메시지 전송
     assert devices_by_id(client)["radar-1"]["online"] is False
+
+
+# ---------- 변경 감지 ----------
+
+
+def test_no_change_reported_at_start(tracker):
+    assert tracker.changes(T0) == []
+
+
+def test_connection_is_reported_once(tracker):
+    tracker.update("radar-1", True, None, T0)
+
+    assert [s.device_id for s in tracker.changes(T0)] == ["radar-1"]
+    assert tracker.changes(T0) == []
+
+
+def test_repeated_normal_status_is_not_a_change(tracker):
+    tracker.update("radar-1", True, None, T0)
+    tracker.changes(T0)
+
+    later = T0 + timedelta(seconds=10)
+    tracker.update("radar-1", True, None, later)
+
+    assert tracker.changes(later) == []
+
+
+def test_timeout_is_reported_without_new_message(tracker):
+    tracker.update("radar-1", True, None, T0)
+    tracker.changes(T0)
+
+    changed = tracker.changes(T0 + TIMEOUT)
+
+    assert len(changed) == 1
+    assert changed[0].online is False
+    assert changed[0].error == NO_STATUS_ERROR
+
+
+def test_error_text_change_is_reported(tracker):
+    tracker.update("radar-1", False, "프레임 수신 없음", T0)
+    tracker.changes(T0)
+
+    tracker.update("radar-1", False, "센서 재연결 실패", T0)
+
+    assert tracker.changes(T0)[0].error == "센서 재연결 실패"

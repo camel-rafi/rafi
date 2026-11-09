@@ -40,8 +40,9 @@ src/rafi/
   radar/      설치 행위 판단, 서버 전송 (레이더 PC)
   rf/         무선랜 프레임 캡처, 기기별 1초 집계, 서버 전송 (Raspberry Pi)
   fusion/     같은 사건 묶기, L1/L2/L3 등급 판단 (중앙 서버)
-  server/     수신 API, 저장소 (중앙 서버)
-  dashboard/  관리자 대시보드
+  server/     수신 API, 융합 호출, 저장소, 대시보드용 API와 WebSocket (중앙 서버)
+  dashboard/  관리자 대시보드 (중앙 서버가 제공)
+  sim/        가짜 송신기 (개발·시연용)
 config/       서버가 인식하는 칸과 장비 목록
 tests/        자동 테스트 (CI에서 실행)
 experiments/  시나리오 정의, 실험 설정
@@ -77,6 +78,22 @@ pip install -e ".[rf]"              # RF 담당 (Raspberry Pi)
 ```bash
 uvicorn --factory rafi.server.app:create_app --host 0.0.0.0 --port 8000
 ```
+
+실행 후 브라우저에서 `http://서버주소:8000/`을 열면 관리자 대시보드, `http://서버주소:8000/docs`를 열면 API 문서가 나옵니다.
+칸, 구역, 장비, 청소 시간대는 `config/rafi.yaml`에서 관리하며, 바꾸면 서버를 재시작합니다.
+
+## 시연
+
+실제 모듈 없이 가짜 송신기로 경보 흐름을 재현할 수 있습니다. 서버를 켠 상태에서 다른 터미널을 열어 실행합니다.
+
+```bash
+python -m rafi.sim --list           # 시나리오 목록과 예상 결과
+python -m rafi.sim rf-then-radar    # L3 알림이 L2로 바뀌는 과정
+python -m rafi.sim demo             # 모든 시나리오를 차례로 (약 15분)
+python -m rafi.sim demo --fast      # 기다리지 않고 바로 보내기
+```
+
+같은 시나리오를 2분 안에 다시 실행하면 앞의 경보와 같은 사건으로 묶입니다. 깨끗하게 다시 시작하려면 서버를 끄고 `data/rafi.db*` 파일을 지웁니다.
 
 환경 변수는 `.env.example`을 복사해 `.env`로 만들어 채웁니다. `.env`는 Git에 올라가지 않습니다.
 
