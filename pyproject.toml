@@ -19,6 +19,9 @@ server = ["fastapi>=0.115", "uvicorn>=0.30", "pyyaml>=6", "anyio>=4", "websocket
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"rafi.dashboard" = ["static/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

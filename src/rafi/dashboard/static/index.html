@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RaFi 관리자</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="connection" class="banner" hidden>서버 연결이 끊겼습니다. 다시 연결하는 중…</div>
+
+  <header class="top">
+    <div>
+      <h1>RaFi 관리자</h1>
+      <p id="room-name" class="muted">불러오는 중…</p>
+    </div>
+    <div class="chips">
+      <span id="cleaning" class="chip"></span>
+      <span id="devices"></span>
+    </div>
+  </header>
+
+  <section class="summary">
+    <div class="card">
+      <p class="label">미확인 경보</p>
+      <p id="unacked-count" class="value">-</p>
+    </div>
+    <div class="card">
+      <p class="label">오늘 경보</p>
+      <p class="value"><span id="today-count">-</span> <span id="today-cleaning" class="sub"></span></p>
+    </div>
+    <div class="card">
+      <p class="label">마지막 수신</p>
+      <p id="last-seen" class="value">-</p>
+    </div>
+  </section>
+
+  <main class="layout">
+    <section class="panel">
+      <h2>평면도</h2>
+      <svg id="plan" role="img" aria-label="칸 평면도"></svg>
+      <p class="muted small">위에서 본 모습 · 위쪽이 뒷벽, 아래쪽이 출입문</p>
+    </section>
+    <section class="panel">
+      <h2>경보 목록</h2>
+      <ol id="alerts" class="alerts"></ol>
+      <p id="no-alerts" class="muted" hidden>경보가 없습니다.</p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

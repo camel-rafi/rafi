@@ -73,12 +73,6 @@ class DeviceConfig(Model):
     position_cm: Point | None = None  # 평면도 표시용. 모르면 생략한다
 
 
-class RoomView(RoomConfig):
-    """대시보드 평면도용. 칸 설정에 그 칸의 장비를 더한다."""
-
-    devices: dict[str, DeviceConfig]
-
-
 class CleaningWindow(Model):
     start: time
     end: time
@@ -96,6 +90,13 @@ class CleaningWindow(Model):
         if self.end <= self.start:
             raise ValueError("end는 start보다 늦어야 합니다")
         return self
+
+
+class RoomView(RoomConfig):
+    """대시보드용. 칸 설정에 그 칸의 장비와 청소 시간대를 더한다."""
+
+    devices: dict[str, DeviceConfig]
+    cleaning_windows: list[CleaningWindow]
 
 
 class Config(Model):
@@ -131,6 +132,7 @@ class Config(Model):
                     for device_id, device in self.devices.items()
                     if device.room == room_id
                 },
+                cleaning_windows=self.cleaning_windows,
             )
             for room_id, room in self.rooms.items()
         }

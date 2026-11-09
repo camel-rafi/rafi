@@ -13,6 +13,7 @@ from typing import Annotated
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from rafi.common.messages import (
     Alert,
@@ -36,6 +37,7 @@ from rafi.server.storage import Storage
 
 DEFAULT_CONFIG_PATH = Path("config/rafi.yaml")
 DEFAULT_DB_PATH = Path("data/rafi.db")
+DASHBOARD_DIR = Path(__file__).parents[1] / "dashboard" / "static"
 DEVICE_CHECK_SEC = 1
 
 
@@ -168,5 +170,8 @@ def create_app(
         limit: Annotated[int, Query(ge=1, le=500)] = 50,
     ) -> list[dict]:
         return request.app.state.storage.list_messages(limit)
+
+    # API 경로를 모두 등록한 뒤에 둔다. 나머지 경로는 대시보드 파일로 응답한다
+    app.mount("/", StaticFiles(directory=DASHBOARD_DIR, html=True), name="dashboard")
 
     return app
