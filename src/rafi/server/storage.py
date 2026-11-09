@@ -5,7 +5,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from rafi.common.messages import Detection, SensorMessage
+from rafi.common.messages import Alert, AlertStatus, Detection, Evidence, SensorMessage
 from rafi.fusion.rules import AlertChange, OpenAlert
 
 SCHEMA = """
@@ -44,6 +44,11 @@ CREATE TABLE IF NOT EXISTS detections (
     method      TEXT NOT NULL,
     reasons     TEXT NOT NULL
 );
+"""
+
+ALERT_SELECT = """
+SELECT alert_id, grade, status, room, roi, started_at, updated_at, acked_at, in_cleaning_window
+FROM alerts
 """
 
 
@@ -177,6 +182,58 @@ class Storage:
             ],
         )
         return alert_id
+
+    def get_alert(self, alert_id: int) -> Alert | None:
+        row = self._db.execute(f"{ALERT_SELECT} WHERE alert_id = ?", (alert_id,)).fetchone()
+        return self._to_alert(row) if row else None
+
+    def list_alerts(self, limit: int, status: AlertStatus | None = None) -> list[Alert]:
+        """최근에 만들어진 경보부터 돌려준다."""
+        rows = self._db.execute(
+            f"""
+            {ALERT_SELECT}
+            WHERE ? IS NULL OR status = ?
+            ORDER BY alert_id DESC
+            LIMIT ?
+            """,
+            (status, status, limit),
+        ).fetchall()
+        return [self._to_alert(row) for row in rows]
+
+    def ack_alert(self, alert_id: int, now: datetime) -> bool:
+        """경보를 확인 처리한다. 미확인 경보가 아니면 아무것도 바꾸지 않고 False를 돌려준다."""
+        cursor = self._db.execute(
+            """
+            UPDATE alerts
+            SET status = 'acked', acked_at = ?, updated_at = ?
+            WHERE alert_id = ? AND status = 'unacked'
+            """,
+            (now.isoformat(), now.isoformat(), alert_id),
+        )
+        return cursor.rowcount == 1
+
+    def _to_alert(self, row: tuple) -> Alert:
+        alert_id, grade, status, room, roi, started_at, updated_at, acked_at, in_cleaning = row
+        return Alert(
+            alert_id=alert_id,
+            grade=grade,
+            status=status,
+            room=room,
+            roi=roi,
+            started_at=started_at,
+            updated_at=updated_at,
+            acked_at=acked_at,
+            in_cleaning_window=bool(in_cleaning),
+            evidence=[
+                Evidence(
+                    source=detection.source,
+                    score=detection.score,
+                    method=detection.method,
+                    reasons=detection.reasons,
+                )
+                for detection in self._detections_of(alert_id)
+            ],
+        )
 
     def _detections_of(self, alert_id: int) -> list[Detection]:
         rows = self._db.execute(
