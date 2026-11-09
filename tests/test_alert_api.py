@@ -193,7 +193,7 @@ def test_promotion_is_pushed_as_updated(client):
 
 def test_rf_promoting_two_alerts_pushes_both(client):
     client.post(MESSAGES, json=radar_message(local(12), "vent"))
-    client.post(MESSAGES, json=radar_message(local(12), "door"))
+    client.post(MESSAGES, json=radar_message(local(12), "shelf"))
 
     with client.websocket_connect(WS) as ws:
         send_rf_transmission(client, local(12))

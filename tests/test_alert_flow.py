@@ -205,7 +205,7 @@ def test_in_cleaning_window(config, hour, minute, expected):
 def write_config(tmp_path: Path, cleaning: str) -> Path:
     path = tmp_path / "config.yaml"
     path.write_text(
-        "rooms: {stall-1: {name: 칸 1}}\n"
+        "rooms: {stall-1: {name: 칸 1, size_cm: {x: 97, y: 137.5, z: 228}, zones: {}}}\n"
         "devices: {radar-1: {kind: radar, room: stall-1}}\n"
         "device_timeout_sec: 30\n"
         "fusion_window_sec: 120\n"

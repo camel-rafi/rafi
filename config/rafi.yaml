@@ -1,12 +1,52 @@
 # 서버가 인식하는 칸과 장비 목록
+# 좌표 원점: 뒷벽·좌측 칸막이·바닥 모서리 (단위 cm)
+# x: 좌측 칸막이 → 우측 칸막이, y: 뒷벽 → 문, z: 바닥 → 천장
 rooms:
   stall-1:
     name: 칸 1
+    size_cm: {x: 97, y: 137.5, z: 228}
+
+    # 경보 구역. 키가 레이더가 보내는 roi 값이며, 여기에 없는 roi는 거부한다
+    zones:
+      vent:
+        name: 환풍구
+        x_cm: [90, 97]  # 이 칸 쪽으로 걸친 폭은 미측정
+        y_cm: [42.5, 70.3]
+        z_cm: [228, 228]
+      shelf:
+        name: 선반
+        x_cm: [0, 97]
+        y_cm: [0, 22]
+        z_cm: [142, 142]
+      dispenser:
+        name: 휴지 디스펜서
+        x_cm: [0, 14]
+        y_cm: [79, 103.5]
+        z_cm: [98, 126]
+      sanitary_box:
+        name: 위생용품 함
+        x_cm: [82, 97]
+        y_cm: [42, 72]
+        z_cm: [96, 142]
+
+    # 평면도 배경
+    fixtures:
+      toilet:
+        name: 변기
+        x_cm: [32.5, 64.5]
+        y_cm: [0, 77]
+        z_cm: [0, 32]
+      door:
+        name: 문
+        x_cm: [38, 97]
+        y_cm: [137.5, 137.5]
+        z_cm: [0, 201]
 
 devices:
   radar-1:
     kind: radar
     room: stall-1
+    position_cm: {x: 55, y: 23, z: 200}
   pi-1:
     kind: rf
     room: stall-1

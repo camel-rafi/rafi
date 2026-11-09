@@ -29,7 +29,7 @@ from rafi.common.messages import (
 )
 from rafi.rf.judge import RfJudge
 from rafi.server.alerts import record_detection
-from rafi.server.config import load_config
+from rafi.server.config import RoomView, load_config
 from rafi.server.devices import DeviceTracker
 from rafi.server.live import LiveHub, server_envelope
 from rafi.server.storage import Storage
@@ -95,6 +95,13 @@ def create_app(
             raise HTTPException(status_code=403, detail="등록되지 않은 장비입니다")
         if message.type.split(".")[0] != device.kind:
             raise HTTPException(status_code=403, detail="장비 종류와 맞지 않는 메시지입니다")
+        if isinstance(message, RadarDetectionMessage):
+            roi = message.payload.roi
+            if roi not in config.rooms[device.room].zones:
+                # 구역 ID가 어긋나면 평면도·융합·평가가 모두 틀어지므로 받지 않는다
+                raise HTTPException(
+                    status_code=422, detail=f"{device.room}에 없는 구역입니다: {roi}"
+                )
 
         storage = request.app.state.storage
         now = datetime.now().astimezone()
@@ -123,6 +130,10 @@ def create_app(
     @app.get("/api/v1/devices")
     async def list_devices() -> list[DeviceStatus]:
         return devices.statuses(now=datetime.now().astimezone())
+
+    @app.get("/api/v1/rooms")
+    async def list_rooms() -> dict[str, RoomView]:
+        return config.room_views()
 
     @app.get("/api/v1/alerts")
     async def list_alerts(
