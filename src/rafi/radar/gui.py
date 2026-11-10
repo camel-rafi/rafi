@@ -59,6 +59,8 @@ ZONE_KO_EN = {"디스펜서 앞·아래": "Dispenser (front/below)", "디스펜�
               "선반 아래": "Under shelf", "칸 전체": "Whole stall", "높은 곳": "High area"}
 
 _REASON_EN = [  # 탐지기(detector.py)가 만드는 근거 문장 → 영어
+    (r"^(.+?) 손 머묾 총 ([\d.]+)초 \(최근 ([\d.]+)초 중\)$",  # 총 시간 방식 구역 (rule-v3)
+     lambda m: f"Hand held at {ZONE_KO_EN.get(m[1], m[1])} for {m[2]} s in total (last {m[3]} s)"),
     (r"^(.+?) 손 머묾 ([\d.]+)초(?: \((.+)\))?$",
      lambda m: f"Hand held at {ZONE_KO_EN.get(m[1], m[1])} for {m[2]} s"
      + (f" ({m[3].replace('손 떨림', 'hand tremor').replace('머리보다 아래', 'below head')})" if m[3] else "")),
