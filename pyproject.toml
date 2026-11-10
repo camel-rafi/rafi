@@ -9,15 +9,21 @@ description = "레이더-RF 융합 기반 불법촬영기기 설치 행위 탐�
 requires-python = ">=3.11"
 dependencies = ["pydantic>=2.11"]
 
+[project.scripts]
+rafi-radar-gui = "rafi.radar.gui:main"
+
 [project.optional-dependencies]
 # 담당 모듈에 맞게 설치: pip install -e ".[dev,radar]"
 dev = ["pytest>=8", "ruff>=0.6", "httpx>=0.27"]
-radar = ["numpy", "pandas", "matplotlib", "httpx>=0.27"]
+radar = ["numpy", "pandas", "matplotlib", "httpx>=0.27", "zstandard; python_version < '3.14'"]
 rf = ["scapy", "httpx>=0.27"]
 server = ["fastapi>=0.115", "uvicorn>=0.30", "pyyaml>=6"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"rafi.radar" = ["fonts/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

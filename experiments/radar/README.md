@@ -29,6 +29,25 @@ python experiments/radar/rt_eval.py ..\sg-radar-tools\recordings\record_1105 --s
 
 ## 실시간 프로그램
 
+### 화면으로 실행 (레이더 PC)
+
+`scripts\radar_gui.bat`을 더블클릭하거나 `python -m rafi.radar.gui`. 입력칸을 확인하고 **Start live detection**을 누른다. 화면 글자는 영어이고, 서버로 보내는 메시지(근거 문장 포함)는 그대로 한국어다. 글씨체는 함께 넣어 둔 Pretendard(`src/rafi/radar/fonts`, OFL 1.1)라 따로 설치하지 않아도 된다.
+
+| 칸 | 기본값 | 언제 바꾸나 |
+|---|---|---|
+| 레이더 입력 | 실제 레이더 `192.168.30.1:29172` | 녹화로 시험할 때 에뮬레이터 또는 녹화 파일 |
+| 칸 설정 파일 | `config/radar/stall_1105.json` (우정원 7층 실험 칸) | 다른 칸에 설치할 때 |
+| 칸 크기·레이더 위치·각도 | 설정 파일 값 | 레이더를 다시 달았을 때 (예: 35°). 원본은 그대로 두고 `out/rt/stall_active.json` 사본으로 탐지 |
+| 배경 | 시작 후 20초 칸 비우고 배우기 | 녹화를 틀 때는 빈 칸 녹화 폴더 (입력을 바꾸면 자동으로 바뀜) |
+| 서버 주소 | 비움 (안 보냄) | `http://서버IP:8000/api/v1/messages`. [서버 연결 확인]으로 먼저 확인 |
+
+- 오른쪽 위 상태 아이콘: 회색 대기(Ready), 파랑 준비·배경 배우기, 주황 연결 끊김, 초록 감시 중(Monitoring), 빨강 레이더 의심(Suspicious activity, 구역과 근거)
+- 마지막 입력값은 `out/rt/gui_settings.json`에 저장되어 다음에 그대로 뜬다
+- 비품 구역(디스펜서·위생함 등) 위치는 설정 파일 값 그대로다. 칸이 바뀌면 설정 파일을 새로 만든다
+- 화면과 아래 명령은 같은 탐지 코드(`src/rafi/radar/session.py`)를 쓴다
+
+### 명령으로 실행
+
 ```powershell
 # 녹화를 실시간처럼 재생
 python -m rafi.radar.run --replay ..\sg-radar-tools\recordings\record_1102\danger_tissue_hs_1.pcr --bg-folder ..\sg-radar-tools\recordings\record_1102

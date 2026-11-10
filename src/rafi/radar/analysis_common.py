@@ -28,21 +28,23 @@ TARGET_ZONE = {
     "danger_under_shelve": "under_shelf",
     "pad_bin": "sanbox_top",  # 투입구가 위쪽
     "install_vent": "high",
+    "danger_install_vent": "high",  # 2026-11-10 녹화 이름 앞에 danger_를 붙임
 }
 
 # 위험 동작 (경보가 울려야 하는 녹화). danger_로 시작하는 것 + 아래 목록
-DANGER_ACTIONS = {"install_vent"}
+DANGER_ACTIONS = {"install_vent"}  # 예전 이름. 11-10부터 녹화는 danger_install_vent_*
 
 
 def classify(action: str) -> str:
     """danger: 경보가 울려야 함 / normal: 울리면 안 됨 (빈 칸, 문 흔들림 포함) / calib: 평가에서 제외 (캔 보정)"""
-    if action.startswith("cal_can"):
+    if action.startswith(("cal_", "excluded_")):  # 보정 녹화, 잘못 찍은 녹화(2026-11-10: excluded_ 접두어)
         return "calib"
     if action.startswith("danger") or action in DANGER_ACTIONS:
         return "danger"
     return "normal"
 
-NAME_RE = re.compile(r"^(?P<action>.+?)_(?P<person>[a-z]{2})(?:_(?P<rep>\d+))?$")
+# 반복 번호는 _1 또는 바로 붙은 1 모두 받음 (install_vent_hs1 → install_vent, hs, 1). 2026-11-10: 예전에는 hs1을 못 읽어 install_vent_hs1·hs2가 정상으로 분류됐음
+NAME_RE = re.compile(r"^(?P<action>.+?)_(?P<person>[a-z]{2})(?:_?(?P<rep>\d+))?$")
 
 
 def parse_name(path) -> dict:

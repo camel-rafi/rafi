@@ -40,6 +40,8 @@ from .messages import KST, envelope, iso
 from .stall import Stall
 
 METHOD = "rule-v2"
+# 한국인 평균 앉은키(m, 앉은 면 ~ 머리 꼭대기). 제8차 사이즈코리아 비교표의 비장애인 값 (2026-11-10 md 참고)
+SITTING_HEIGHT = {"female": 0.859, "male": 0.920}
 STAND_MIN = 1.30  # 이보다 낮은 머리 높이는 앉음으로 보고 서 있는 높이 계산에서 뺌 (1102: 앉음 1.04 ~ 1.29, 섬 1.40 ~ 1.60)
 
 
@@ -89,6 +91,12 @@ class Detector:
         self.door_box = (cfg.get("door_plane") or cfg.get("door_swing", {})).get("box")  # 문짝 앞뒤 띠
         self.climb = {"rise": 0.2, "alarm_s": 3.0, **cfg.get("climb", {})}
         self.cfg = cfg
+        # 화장실 종류(여자/남자)에 따른 앉은 머리 꼭대기 예상 높이 = 변기 높이 + 한국인 평균 앉은키 (2026-11-10)
+        self.restroom = cfg.get("restroom", "female")
+        body = cfg.get("body", {})
+        seat = body.get("seat_height", [0.30, 0.35])
+        sit_h = {**SITTING_HEIGHT, **body.get("sitting_height", {})}[self.restroom]
+        self.seated_head = (seat[0] + sit_h, seat[1] + sit_h)
         self.head = HeadRule(cfg)  # 머리 기준 (rule-v2)
         self.zones = [z for z in self.st.zones if "alarm_s" in z]  # 경보에 쓰는 구역만
         self.zidx = {z["name"]: i for i, z in enumerate(self.st.zones)}
@@ -99,6 +107,7 @@ class Detector:
         # 시계: 탐지기 시각(초) → 실제 시각. 기본은 실시간(t = time.monotonic()), 재생은 rt_run·rt_eval이 따로 넘김
         self.clock = clock or live_clock
         self._ids = itertools.count(1)
+        self.zone_tot: dict = {}  # 총 시간 방식 구역: 구역 이름 → deque[(t, dt)] (조건이 맞은 프레임)
         self.zw = {z["name"]: Window(window) for z in self.zones}  # 구역별 [점 있음, 전체, 느린, 떨림, 머리차 유효, 머리차 충족]
         self.events: dict[str, Event] = {}  # 판단별 진행 중 상태 (보내지 않음)
         self.ended: dict[str, Event] = {}
@@ -118,9 +127,65 @@ class Detector:
         self.base_t0 = None
         self.base_vals: list = []
         self.low_start = None
+        self.vanish_kind = None  # 점 사라짐 직전 행동 추정: sit / climb / under / None
+        self.seated = False  # 앉아서 사라진 뒤 아직 일어나지 않음 (2026-11-10, 앉은 채 숙임은 머리 숙임에서 뺌)
+        self.reapp = None  # 다시 나타난 뒤 머리 추적 {"t0", "vanish_s", "zs": [(t, 머리 높이)]}
+        self.hz_hist: deque = deque()  # (t, 머리 높이, 머리 뒷벽 거리) 최근 6초
         self.last_door_t = -1e9
+        if hasattr(self, "zone_tot"):
+            self.zone_tot.clear()  # 사람이 나가면 쌓인 손 시간도 비움
         if hasattr(self, "head"):
             self.head.reset()
+
+    def _check_reappear(self, t: float, hz: float) -> str | None:
+        """다시 나타난 뒤 reappear_win_s(3초) 동안 머리를 본다.
+        처음 1초 안 최고 머리 ≥ 서 있던 높이 + down_rise 이고, 그 뒤 최고점보다 down_drop 이상 내려오면
+        '변기에서 내려옴'(올라섬 확정) 근거 문장을 돌려준다. 서 있던 높이를 모르면 climb.min_height를 기준으로 쓴다."""
+        r = self.reapp
+        if r is None:
+            return None
+        if t - r["t0"] > self.climb.get("reappear_win_s", 3.0):
+            self.reapp = None
+            return None
+        if np.isfinite(hz):
+            r["zs"].append((t, hz))
+        early = [z for tt, z in r["zs"] if tt - r["t0"] <= 1.0]
+        if not early:
+            return None
+        peak = max(early)
+        # 절대 높이는 쓰지 않는다 (키 큰 남성은 서 있어도 1.8 m를 넘을 수 있음). 이 사람의 서 있던 높이 기준 상대값만 본다.
+        base = self.base if self.base is not None else self.head.cur_base
+        if base is None:
+            return None
+        if peak < base + self.climb.get("down_rise", 0.15):
+            return None
+        after = [z for tt, z in r["zs"] if z <= peak - self.climb.get("down_drop", 0.10)]
+        if not after:
+            return None
+        self.reapp = None
+        return (f"문이 안 열린 채 {r['vanish_s']:.1f}초 안 보이다가 서 있던 높이 {base:.2f} m보다 {peak - base:.2f} m 높게 "
+                f"다시 나타나 {min(after):.2f} m로 내려옴 (변기에서 내려옴 → 올라섬 확정)")
+
+    def _vanish_kind(self, t: float) -> str | None:
+        """점이 사라지기 시작한 순간, 직전 머리 움직임으로 행동을 추정한다.
+        before = 4 ~ 1.5초 전 머리 높이 중앙값, last = 마지막 1.5초 머리 높이
+          before - min(last) ≥ sit_drop → sit (앉음: 경보 안 함)
+          max(last) - before ≥ climb_rise → climb (올라섬)
+          마지막 머리 뒷벽 거리 ≤ under_max_y → under (레이더 바로 아래로 들어감)"""
+        h = [(tt, z, y) for tt, z, y in self.hz_hist if np.isfinite(z)]
+        pre = [z for tt, z, _ in h if t - 4.0 <= tt < t - 1.5]
+        last = [(z, y) for tt, z, y in h if tt >= t - 1.5]
+        if len(pre) < 5 or len(last) < 3:
+            return None
+        before = float(np.median(pre))
+        lz = np.array([z for z, _ in last])
+        if before - lz.min() >= self.climb.get("sit_drop", 0.35):
+            return "sit"
+        if lz.max() - before >= self.climb.get("climb_rise", 0.15):
+            return "climb"
+        if last[-1][1] <= self.climb.get("under_max_y", 0.70):
+            return "under"
+        return None
 
     def _median(self, q: deque, t: float) -> float:
         while q and q[0][0] < t - 1.0:
@@ -132,6 +197,7 @@ class Detector:
     def step(self, t: float, pts: np.ndarray) -> list[dict]:
         """프레임 하나를 넣으면 보낼 radar.detection 메시지 목록을 돌려준다."""
         self.frames += 1
+        dt = 0.0 if self.t_last is None else min(max(t - self.t_last, 0.0), 0.5)  # 프레임 간격 (끊김은 0.5초까지만)
         self.t_last = t
         row = frame_features(self.st, pts, self.p["moving"], self.p["slow"], self.bg, self.door_box)
         n_in, top, door, body_y = row[1], row[3] / 1000 if row[3] >= 0 else np.nan, row[4], row[5] / 1000 if row[5] >= 0 else np.nan
@@ -161,6 +227,23 @@ class Detector:
                 ok = s[3] / max(s[1], 1) >= z["tremor"]
             if ok and bh is not None:
                 ok = s[4] > 0 and s[5] / s[4] >= 0.5
+            if ok and z.get("door_quiet_s") and t - self.last_door_t < z["door_quiet_s"]:
+                ok = False  # 문이 막 움직였음 = 드나들며 벽·문을 짚는 중 (2026-11-10, 벽·문 구역)
+            win_s = z.get("total_window_s")
+            if win_s:
+                # (2026-11-10) 총 시간 방식: 최근 total_window_s초 동안 조건이 맞은 시간의 합이 alarm_s 이상이면 경보.
+                #   손을 잠깐 뗐다 다시 대도 쌓인다 (실제 설치 = 붙이기, 위치 맞추기, 방향 조정).
+                tq = self.zone_tot.setdefault(z["name"], deque())
+                if ok:
+                    tq.append((t, dt))
+                while tq and tq[0][0] < t - float(win_s):
+                    tq.popleft()
+                total = sum(d for _, d in tq)
+                ok_total = total >= float(z["alarm_s"])
+                reason = (lambda d, z=z, total=total, win_s=win_s:  # noqa: E731
+                          f"{ZONE_KO.get(z['name'], z['name'])} 손 머묾 총 {total:.1f}초 (최근 {float(win_s):.0f}초 중)") if ok_total else None
+                out += self._track(z["name"], ok_total, t, 0.0, reason)
+                continue
             reason = None
             if ok:
                 extra = []
@@ -188,25 +271,55 @@ class Detector:
                    and sh >= self.climb.get("min_height", 0.0))
 
         # 올라섬 ② 사라짐: 사람이 있었고, 점이 거의 없고, 사라지기 2초 전부터 문이 안 움직임
+        # (2026-11-10) 사라지기 직전 머리가 sit_drop 이상 뚝 떨어졌으면 '앉음'으로 보고 이번 사라짐은 경보에서 뺀다.
+        #   1105: 앉을 때 0.43 ~ 0.68 m 떨어짐 / 올라섬·선반 아래는 0.27 m 이하
+        # (2026-11-10) vanish_mode "wait": 사라진 동안은 경보하지 않고 다시 나타날 때까지 기다린다.
+        #   다시 나타난 머리가 서 있던 높이 + down_rise 이상에서 내려오면 '변기에서 내려옴' → 올라섬 확정.
+        #   단, 사라지기 직전 뒷벽 쪽으로 간 경우(under)는 레이더 아래 사각지대 머묾으로 alarm_s초 뒤 경보.
+        wait_mode = self.climb.get("vanish_mode", "timer") == "wait"
         vanish_ok = False
+        under_ok = False
         if self.seen and sn < 60:
             if self.low_start is None:
                 self.low_start = t
+                self.vanish_kind = self._vanish_kind(t)
+                if self.vanish_kind == "sit":
+                    self.seated = True
+                # self.reapp은 지우지 않는다: 다시 나타났다 0.5초 만에 또 사라져도(install_vent_hs 14.8 → 15.1초)
+                # reappear_win_s 동안은 계속 머리를 본다 (머리 판단은 점이 적어도 15개면 됨)
             if self.last_door_t > self.low_start - 2.0:
                 # 문이 움직였다 = 나간 것으로 보고 사람 상태를 비움 (다음 사람은 새로 기준을 잼)
                 self.reset_person()
+            elif wait_mode:
+                # 사각지대 진입은 추정일 뿐(동작은 안 보임) → climb.under_alarm이 true일 때만 경보 (기본 끔)
+                under_ok = self.vanish_kind == "under" and bool(self.climb.get("under_alarm", False))
             else:
-                vanish_ok = True
+                vanish_ok = self.vanish_kind != "sit"
         elif sn >= 60:
+            if wait_mode and self.low_start is not None and t - self.low_start >= self.climb.get("reappear_min_vanish_s", 1.0):
+                self.reapp = {"t0": t, "vanish_s": t - self.low_start, "zs": []}
             self.low_start = None
+            self.vanish_kind = None
 
         # 머리 기준 (rule-v2)
         P = np.asarray(pts, dtype=float)[:, :3] if pts is not None and len(pts) else np.zeros((0, 3))
         if len(P) and len(self.bg):
             P = P[~np.isin(voxel_codes(P, 0.10), self.bg)]
         hr = self.head.update(t, to_stall(P, self.cfg), door_moving=sd >= 3)
+        if hr["head"] is not None:
+            self.hz_hist.append((t, hr["head"][0], hr["head"][2]))
+        while self.hz_hist and self.hz_hist[0][0] < t - 6.0:
+            self.hz_hist.popleft()
         hp = self.head.p
-        ok_h = hr["down"]
+        # (2026-11-10) 앉아서 사라졌다가 앉은 채 앞으로 숙여 다시 보이면, 머리가 서 있던 높이보다 낮아도 '서서 숙임'이 아님
+        #   (normal_full_hs1: 1.48 → 1.18 m = 여성 앉은 머리 예상 1.16 ~ 1.21 m). 머리가 서 있던 높이 - stand_back까지
+        #   돌아오면 일어난 것으로 보고 다시 센다. 1105 위험 녹화의 머리 숙임 경보 11건은 모두 앉음 없이 서서 숙임.
+        # 머리 숙임과 같은 기준(head_rule이 잰 서 있던 높이)을 쓴다. 올라섬용 self.base는 낮게 잡힐 때가 있음
+        #   (normal_full_kb_1: base 1.34 m, head 기준 1.62 m → 앉은 머리 1.25 m를 '일어남'으로 잘못 봄)
+        stand = self.head.cur_base if self.head.cur_base is not None else self.base
+        if self.seated and stand is not None and np.isfinite(sh) and sh >= stand - float(hp.get("stand_back", 0.15)):
+            self.seated = False
+        ok_h = hr["down"] and not (self.seated and hp.get("skip_seated", True))
 
         def head_reason(d, hr=hr):
             hz, hx, hy = hr["head"]
@@ -222,12 +335,30 @@ class Detector:
         climb_ok = rise_ok or vanish_ok
         base = self.base
 
-        def climb_reason(d, rise_ok=rise_ok, sh=sh, base=base):
+        def climb_reason(d, rise_ok=rise_ok, sh=sh, base=base, kind=self.vanish_kind):
             if rise_ok:
                 return f"서 있던 높이({base:.2f} m)보다 {sh - base:.2f} m 높은 상태 {d:.1f}초 (올라섬)"
-            return f"문이 안 열렸는데 사람 점이 사라진 상태 {d:.1f}초 (올라서서 시야 위로 나감)"
+            # 1105(18°): 레이더는 0.57 m보다 가까운 점을 안 찍고, 정면에서 45° 넘게 아래도 못 본다
+            # → 뒷벽에서 약 0.6 m 안쪽은 높이와 상관없이 사각지대 (변기 위에 선 머리, 앉은 사람, 선반 아래)
+            guess = {"climb": "직전에 머리가 올라감 → 변기에 올라서서 레이더 앞 사각지대로 들어감 추정",
+                     "under": "직전에 뒷벽 쪽으로 감 → 레이더 아래 사각지대(선반 아래·변기 쪽)로 들어감 추정"}.get(kind, "원인 모름")
+            return f"문이 안 열렸는데 사람 점이 사라진 상태 {d:.1f}초 ({guess})"
 
         out += self._track("high", climb_ok, t, float(self.climb["alarm_s"]), climb_reason if climb_ok else None, kind="올라섬")
+
+        if wait_mode:
+            # 레이더 아래 사각지대 머묾 (사라지기 직전 뒷벽 쪽으로 감, 서 있는 높이 그대로)
+            low_start = self.low_start
+
+            def under_reason(d, low_start=low_start):
+                return f"문이 안 열렸는데 뒷벽 쪽으로 가서 안 보이는 상태 {d:.1f}초 (레이더 아래 사각지대: 선반 아래·뒷벽 쪽 추정)"
+            out += self._track("under_shelf", under_ok, t, float(self.climb["alarm_s"]), under_reason if under_ok else None,
+                               key="under_shelf#vanish", kind="사각지대")
+
+            # 다시 나타남: 높은 머리로 나타나서 내려오면 변기에서 내려온 것
+            down = self._check_reappear(t, hr["head"][0] if hr["head"] is not None else np.nan)
+            out += self._track("high", down is not None, t, 0.0, (lambda d, s=down: s) if down else None,
+                               key="high#down", kind="올라섬")
         out += self._combine(t)
         return out
 
@@ -250,7 +381,8 @@ class Detector:
             ev.last_true = t
             d = t - ev.start
             ev.reasons = [reason(d)]
-            ev.score = round(min(1.0, d / (2 * alarm_s)), 2)  # 기준에 닿으면 0.5, 두 배면 1.0
+            # 기준에 닿으면 0.5, 두 배면 1.0. 기준 0초(바로 확정하는 판단, 예: 변기에서 내려옴)는 1.0
+            ev.score = 1.0 if alarm_s <= 0 else round(min(1.0, d / (2 * alarm_s)), 2)
             if d >= alarm_s:
                 ev.alarmed = True
         else:
@@ -336,6 +468,8 @@ ZONE_KO = {
     "sanbox_low": "위생함 앞·아래",
     "sanbox_top": "위생함 위쪽",
     "under_shelf": "선반 아래",
+    "wall_plain": "디스펜서 없는 벽",
+    "door_hand": "문",
     "stall": "칸 전체",
     "high": "높은 곳",
 }
