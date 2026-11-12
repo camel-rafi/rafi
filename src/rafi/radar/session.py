@@ -33,7 +33,7 @@ class Settings:
     port: int = 29172
     replay: str = ""
     speed: float = 1.0
-    stall: str = str(REPO / "config" / "radar" / "stall_1105.json")
+    stall: str = str(REPO / "config" / "radar" / "stall_1111.json")
     overrides: dict = field(default_factory=dict)  # POSE_KEYS 중 바꾼 값
     restroom: str = ""  # female(여자 화장실) / male(남자 화장실). 비우면 설정 파일 값
     bg_mode: str = "learn"  # learn(시작 후 N초 배우기) / folder(빈 칸 녹화 폴더)
@@ -73,7 +73,7 @@ def _until(frames: Iterable, stop: threading.Event) -> Iterator:
 def run_session(s: Settings, stop: threading.Event, emit: Callable[[str, object], None]) -> None:
     # 무거운 모듈(pcr_loader 포함)은 여기서 가져온다: 화면이 먼저 뜨게
     from .analysis_common import background_codes, prefix_trim
-    from .detector import Detector, learn_background, sim_clock
+    from .detector import Detector, learn_background
     from .messages import KST, HttpSink, JsonlSink, envelope
     from .stream import ReplaySource, TcpSource
 
@@ -117,9 +117,13 @@ def run_session(s: Settings, stop: threading.Event, emit: Callable[[str, object]
 
         clock = None
         if s.source == "replay":  # 녹화 시각을 '지금'부터 흐르게
-            from .radar_io import iter_frames
-            t_first = next(iter(iter_frames(s.replay)))[2]
-            clock = sim_clock(datetime.now(KST) - timedelta(seconds=t_first))
+            # (2026-11-12) 첫 시각을 알려고 파일을 한 번 더 읽지 않고(약 1.7초), 처음 시각을 물을 때 '지금'에 맞춤
+            anchor: dict = {}
+
+            def clock(t: float) -> datetime:
+                if "start" not in anchor:
+                    anchor["start"] = datetime.now(KST) - timedelta(seconds=float(t))
+                return anchor["start"] + timedelta(seconds=float(t))
         det = Detector(stall_path, bg_codes, room=s.room, device_id=s.device_id, clock=clock)
         emit("log", "탐지 시작")
         emit("running", None)

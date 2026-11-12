@@ -23,9 +23,10 @@
 ```powershell
 python experiments/radar/rt_eval.py ..\sg-radar-tools\recordings\record_1102 --stall config/radar/stall_1102.json
 python experiments/radar/rt_eval.py ..\sg-radar-tools\recordings\record_1105 --stall config/radar/stall_1105.json
+python experiments/radar/rt_eval.py ..\sg-radar-tools\recordings\record_1111 --stall config/radar/stall_1111.json --jobs 14
 ```
 
-칸 설정은 `config/radar/stall_1102.json`(50°), `config/radar/stall_1105.json`(18°). 칸 실측과 분석 기록은 `docs/radar/`.
+칸 설정은 `config/radar/stall_1102.json`(50°), `config/radar/stall_1105.json`(18°), `config/radar/stall_1111.json`(42°, 실시간 프로그램 기본값). 칸 실측과 분석 기록은 `docs/radar/`.
 
 ## 실시간 프로그램
 
@@ -36,7 +37,7 @@ python experiments/radar/rt_eval.py ..\sg-radar-tools\recordings\record_1105 --s
 | 칸 | 기본값 | 언제 바꾸나 |
 |---|---|---|
 | 레이더 입력 | 실제 레이더 `192.168.30.1:29172` | 녹화로 시험할 때 에뮬레이터 또는 녹화 파일 |
-| 칸 설정 파일 | `config/radar/stall_1105.json` (우정원 7층 실험 칸) | 다른 칸에 설치할 때 |
+| 칸 설정 파일 | `config/radar/stall_1111.json` (우정원 7층 실험 칸, 레이더 42°) | 다른 칸에 설치할 때 |
 | 칸 크기·레이더 위치·각도 | 설정 파일 값 | 레이더를 다시 달았을 때 (예: 35°). 원본은 그대로 두고 `out/rt/stall_active.json` 사본으로 탐지 |
 | 배경 | 시작 후 20초 칸 비우고 배우기 | 녹화를 틀 때는 빈 칸 녹화 폴더 (입력을 바꾸면 자동으로 바뀜) |
 | 서버 주소 | 비움 (안 보냄) | `http://서버IP:8000/api/v1/messages`. [서버 연결 확인]으로 먼저 확인 |

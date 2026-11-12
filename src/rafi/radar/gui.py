@@ -3,7 +3,7 @@ r"""RaFi 레이더 실시간 탐지 화면 (레이더 PC에서)
   python -m rafi.radar.gui          (또는 저장소의 scripts\radar_gui.bat 더블클릭)
 
 입력칸을 채우고 [실시간 탐지 시작]을 누르면 run.py와 같은 탐지 코드(session.py)가 돈다.
-기본값은 실제로 녹화한 칸(우정원 7층, config/radar/stall_1105.json)과 레이더 기본 주소(192.168.30.1).
+기본값은 실제로 녹화한 칸(우정원 7층, config/radar/stall_1111.json, 레이더 42°)과 레이더 기본 주소(192.168.30.1).
 마지막으로 쓴 입력값은 out/rt/gui_settings.json에 저장되어 다음에 그대로 뜬다.
 
 칸 크기·레이더 위치·각도를 고치면 설정 파일은 그대로 두고 out/rt/stall_active.json에 덮어쓴 사본으로 탐지한다.
@@ -28,7 +28,7 @@ from tkinter import filedialog, font, messagebox, ttk
 from .session import POSE_KEYS, REPO, Settings, run_session
 
 SETTINGS_FILE = REPO / "out" / "rt" / "gui_settings.json"
-DEFAULT_REC = REPO.parent / "sg-radar-tools" / "recordings" / "record_1105"
+DEFAULT_REC = REPO.parent / "sg-radar-tools" / "recordings" / "record_1111"
 
 # 글씨체: 저장소에 넣어 둔 Pretendard(fonts 폴더, OFL 1.1)를 먼저, 없으면 Windows 기본(맑은 고딕)
 FONT_DIR = Path(__file__).resolve().parent / "fonts"
@@ -516,7 +516,7 @@ class App:
 
     def _load_pose(self, saved: dict | None):
         p = self._stall_path()
-        try:  # 저장소 안이면 짧게 (config/radar/stall_1105.json)
+        try:  # 저장소 안이면 짧게 (config/radar/stall_1111.json)
             self.v["stall"].set(str(p.resolve().relative_to(REPO.resolve())))
         except ValueError:
             pass

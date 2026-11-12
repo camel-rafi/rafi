@@ -22,6 +22,7 @@ import numpy as np
 DEFAULT = {
     "drop": 0.25,          # 서 있던 높이보다 이만큼 이상 내려가면 숙임
     "min_height": 0.95,    # 이보다 낮으면 줍기·휴대폰처럼 깊게 숙인 것으로 보고 뺌
+    "min_ratio": None,     # (2026-11-12) 머리가 '서 있던 높이 × 이 비율'보다 낮으면 바닥 찾기·줍기로 보고 뺌. None = 안 씀
     "min_y": 0.60,         # 뒷벽에서 이 거리 이상 = 변기 위(앉은 머리 0.42 ~ 0.49)가 아님
     "alarm_s": 10.0,
     "stand_min": 1.30,     # 서 있는 높이로 셀 머리 범위
@@ -33,6 +34,8 @@ DEFAULT = {
     "shelf_min_height": 1.30,
     "shelf_max_y": 0.40,
     "shelf_alarm_s": 3.0,
+    "shelf_max_drop": None,  # (2026-11-12) 서 있던 높이보다 이만큼 넘게 낮으면 선반 판단에서 뺌(깊게 숙임·앉음). None = 안 씀
+    "shelf_skip_seated": False,  # (2026-11-12) Detector가 '앉음'으로 본 동안은 선반 판단에서 뺌
     "shelf_max_rise": 0.10,  # 서 있던 높이보다 이만큼 넘게 높으면 올라선 것(환풍기)으로 보고 선반 판단에서 뺌
 }
 
@@ -105,7 +108,9 @@ class HeadRule:
         self.cur_base = base
 
         down = (base is not None and hz <= base - self.p["drop"]
-                and hz >= self.p["min_height"] and hy >= self.p["min_y"])
+                and hz >= self.p["min_height"] and hy >= self.p["min_y"]
+                and (self.p.get("min_ratio") is None or hz >= base * self.p["min_ratio"]))
         shelf = ((not door_moving) and hz >= self.p["shelf_min_height"] and hy <= self.p["shelf_max_y"]
-                 and (base is None or hz <= base + self.p["shelf_max_rise"]))
+                 and (base is None or hz <= base + self.p["shelf_max_rise"])
+                 and (self.p.get("shelf_max_drop") is None or base is None or hz >= base - self.p["shelf_max_drop"]))
         return {"head": (hz, hx, hy), "down": bool(down), "shelf": bool(shelf)}

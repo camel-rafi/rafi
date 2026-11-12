@@ -1,7 +1,7 @@
 """실시간 설치 의심 행동 판단 (규칙 rule-v3, 버전 기록은 아래).
 
 녹화 분석(analysis_common, evaluate)과 같은 규칙을 '지난 프레임만' 써서 계산한다.
-  - 머묾: 지난 2초 창 (녹화 분석은 앞뒤 1초씩). 경보가 약 1초 늦어짐 (kb 확인: 괜찮음)
+  - 머묾: 지난 2초 창 (녹화 분석은 앞뒤 1초씩). 경보가 약 1초 늦어짐
   - 올라섬 ① 상승: 자리 잡은 뒤 4초 동안 잰 '서 있는 높이'보다 0.2 m 이상 높은 상태
   - 올라섬 ② 사라짐: 사람이 있다가 칸 안 점이 거의 없어졌는데 문은 안 움직임 (문을 안 열었으니 아직 칸 안에 있음)
     (녹화 분석은 '다시 나타남'까지 기다렸지만 실시간에서는 기다릴 수 없어서 바꿈)
@@ -128,6 +128,7 @@ class Detector:
         self.w1 = Window(1.0)
         self.top_q: deque = deque()
         self.by_q: deque = deque()
+        self.step_q: deque = deque()  # (2026-11-12) 내려옴·올라옴 판단용 (t, 머리 높이, 머리 Y, 문 움직임, 앉음). 사람 상태를 비워도 유지
         self.reset_person()
         self.frames = 0
         self.t_last = None
@@ -140,6 +141,7 @@ class Detector:
         self.base_vals: list = []
         self.low_start = None
         self.vanish_kind = None  # 점 사라짐 직전 행동 추정: sit / climb / under / None
+        self.seat_t0 = None  # (2026-11-12) 앉은 높이 머묾 시작 시각
         self.seated = False  # 앉아서 사라진 뒤 아직 일어나지 않음 (2026-11-10, 앉은 채 숙임은 머리 숙임에서 뺌)
         self.reapp = None  # 다시 나타난 뒤 머리 추적 {"t0", "vanish_s", "zs": [(t, 머리 높이)]}
         self.hz_hist: deque = deque()  # (t, 머리 높이, 머리 뒷벽 거리) 최근 6초
@@ -224,6 +226,14 @@ class Detector:
         if sd >= 3:
             self.last_door_t = t
 
+        # 머리 기준 (rule-v2)
+        P = np.asarray(pts, dtype=float)[:, :3] if pts is not None and len(pts) else np.zeros((0, 3))
+        if len(P) and len(self.bg):
+            P = P[~np.isin(voxel_codes(P, 0.10), self.bg)]
+        hr = self.head.update(t, to_stall(P, self.cfg), door_moving=sd >= 3)
+        self._update_seat(t, hr)
+        posture = self._posture(hr)
+
         # 구역별 머묾
         for z in self.zones:
             c = N_HEAD + N_PER_ZONE * self.zidx[z["name"]]
@@ -231,7 +241,7 @@ class Detector:
             gap = top - zh / 1000 if (zh >= 0 and np.isfinite(top)) else np.nan
             bh = z.get("below_head")
             w = self.zw[z["name"]]
-            w.push(t, [n_all >= self.p["min_pts"], n_all, n_slow, n_trem, np.isfinite(gap),
+            w.push(t, [n_all >= z.get("min_pts", self.p["min_pts"]), n_all, n_slow, n_trem, np.isfinite(gap),
                        bool(np.isfinite(gap) and bh is not None and gap >= bh)])
             s = w.sum
             ok = (s[0] / max(w.n, 1) >= self.p["presence"]) and (s[2] / max(s[1], 1) >= self.p["share"])
@@ -239,6 +249,8 @@ class Detector:
                 ok = s[3] / max(s[1], 1) >= z["tremor"]
             if ok and bh is not None:
                 ok = s[4] > 0 and s[5] / s[4] >= 0.5
+            if ok and z.get("posture_gate") and not self._posture_ok(posture, zh):
+                ok = False  # (2026-11-12) 앉음·쭈그림이거나, 서서 머리보다 한참 아래 점 = 몸 옆면. 손 설치 아님
             if ok and z.get("door_quiet_s") and t - self.last_door_t < z["door_quiet_s"]:
                 ok = False  # 문이 막 움직였음 = 드나들며 벽·문을 짚는 중 (2026-11-10, 벽·문 구역)
             win_s = z.get("total_window_s")
@@ -313,11 +325,7 @@ class Detector:
             self.low_start = None
             self.vanish_kind = None
 
-        # 머리 기준 (rule-v2)
-        P = np.asarray(pts, dtype=float)[:, :3] if pts is not None and len(pts) else np.zeros((0, 3))
-        if len(P) and len(self.bg):
-            P = P[~np.isin(voxel_codes(P, 0.10), self.bg)]
-        hr = self.head.update(t, to_stall(P, self.cfg), door_moving=sd >= 3)
+        # 머리 기준 (rule-v2): 2026-11-12 구역 판단보다 앞으로 옮김 (자세로 벽 구역을 거르려고)
         if hr["head"] is not None:
             self.hz_hist.append((t, hr["head"][0], hr["head"][2]))
         while self.hz_hist and self.hz_hist[0][0] < t - 6.0:
@@ -331,7 +339,9 @@ class Detector:
         stand = self.head.cur_base if self.head.cur_base is not None else self.base
         if self.seated and stand is not None and np.isfinite(sh) and sh >= stand - float(hp.get("stand_back", 0.15)):
             self.seated = False
-        ok_h = hr["down"] and not (self.seated and hp.get("skip_seated", True))
+        # (2026-11-12) 머리 계산을 앞으로 옮겨서, 이 프레임에 사람 상태를 비웠으면(reset_person) 서 있던 높이가 없음
+        #   = 예전 순서(비운 뒤 계산)와 같게 숙임을 세지 않는다
+        ok_h = hr["down"] and self.head.cur_base is not None and not (self.seated and hp.get("skip_seated", True))
 
         def head_reason(d, hr=hr):
             hz, hx, hy = hr["head"]
@@ -341,7 +351,8 @@ class Detector:
 
         def shelf_reason(d, hr=hr):
             return f"선반 아래 선 머리 {d:.1f}초 (머리 {hr['head'][0]:.2f} m, 뒷벽에서 {hr['head'][2]:.2f} m)"
-        out += self._track("under_shelf", hr["shelf"], t, float(hp["shelf_alarm_s"]), shelf_reason if hr["shelf"] else None,
+        shelf_ok = hr["shelf"] and not (self.seated and hp.get("shelf_skip_seated", False))  # (2026-11-12) 앉은 머리 제외
+        out += self._track("under_shelf", shelf_ok, t, float(hp["shelf_alarm_s"]), shelf_reason if shelf_ok else None,
                            key="under_shelf#head", kind="머리")
 
         climb_ok = rise_ok or vanish_ok
@@ -371,8 +382,137 @@ class Detector:
             down = self._check_reappear(t, hr["head"][0] if hr["head"] is not None else np.nan)
             out += self._track("high", down is not None, t, 0.0, (lambda d, s=down: s) if down else None,
                                key="high#down", kind="올라섬")
+        out += self._step_down(t, hr, sd >= 3)
         out += self._combine(t)
         return out
+
+    def _step_down(self, t: float, hr: dict, door_moving: bool) -> list[dict]:
+        """(2026-11-12) 보이는 채로 '높은 곳에서 내려옴' (climb.step_down 설정이 있을 때만).
+        42°에서는 변기에 올라선 머리가 사라지지 않고 보임 → 사라짐·서 있던 높이 없이도 판단한다.
+        hold_s초 동안 머리가 높이 hi에 머물다가(흔들림 spread 이하, 그동안 문 조용, 뒷벽에서 max_y 안)
+        1.5초 안에 drop 이상 내려와 end_min 이상(서 있는 높이)에서 멈추면 올라섬 확정.
+        내려온 뒤 높이를 그 사람의 서 있는 높이로 쓰므로, 들어오자마자 올라서서 기준을 못 잰 경우도 잡는다
+        (record_1111 install_vent_kb: 들어오고 3초 만에 올라섬 → 기준 없음 → 올라섬 판단 0건이었음)."""
+        c = self.climb.get("step_down")
+        cu = self.climb.get("step_up")
+        if not c and not cu:
+            return []
+        hz, hy = (hr["head"][0], hr["head"][2]) if hr["head"] is not None else (np.nan, np.nan)
+        q = self.step_q
+        q.append((t, hz, hy, door_moving, self.seated))
+        keep = max(float((c or {}).get("hold_s", 3.0)) + 2.0,
+                   float((cu or {}).get("hold_s", 3.0)) + float((cu or {}).get("up_s", 2.5)) + float((cu or {}).get("pre_s", 2.0)) + 0.5)
+        while q and q[0][0] < t - keep:
+            q.popleft()
+        out = self._step_up(t, cu) if cu else []
+        if not c:
+            return out
+        hold = float(c.get("hold_s", 3.0))
+        ok, info = False, None
+        # 문 조용함은 높이 머문 구간에서만 본다: 내려올 때 몸이 문 쪽으로 움직여 '문 움직임'이 켜짐 (install_vent_kb 14.2초)
+        if q and q[0][0] <= t - hold - 1.5 and not any(v[3] for v in q if t - hold - 1.5 <= v[0] <= t - 1.5):
+            a = np.array([(v[0], v[1], v[2]) for v in q], dtype=float)
+            now = a[a[:, 0] >= t - 0.5]
+            hi = a[(a[:, 0] >= t - hold - 1.5) & (a[:, 0] <= t - 1.5)]
+            nf, hf = now[np.isfinite(now[:, 1])], hi[np.isfinite(hi[:, 1])]
+            if len(nf) and len(hf) >= 0.6 * len(hi):
+                zn, zh = float(np.median(nf[:, 1])), float(np.median(hf[:, 1]))
+                spread = float(np.percentile(hf[:, 1], 90) - np.percentile(hf[:, 1], 10))
+                ok = (zh - zn >= c.get("drop", 0.25) and zn >= c.get("end_min", 1.30) and zh >= c.get("hi_min", 1.65)
+                      and spread <= c.get("spread", 0.15) and float(np.median(hf[:, 2])) <= c.get("max_y", 1.0)
+                      # 내려온 자리도 변기 앞(뒷벽 max_y 안). 1102 shaking_door_1: 문 반사 '머리'(2.0 m)가 문 쪽(Y 1.1~1.2)으로 옮겨 가며 내려옴처럼 보임
+                      and float(np.median(nf[:, 2])) <= c.get("max_y", 1.0))
+                info = (zh, zn, hold)
+
+        def reason(d, info=info):
+            return (f"머리가 {info[0]:.2f} m에 {info[2]:.0f}초 넘게 있다가 {info[1]:.2f} m(서 있는 높이)로 내려옴 "
+                    f"({info[0] - info[1]:.2f} m, 변기 등 높은 곳에서 내려옴 추정)")
+        return out + self._track("high", ok, t, 0.0, reason if ok else None, key="high#step", kind="올라섬")
+
+    def _step_up(self, t: float, c: dict) -> list[dict]:
+        """(2026-11-12) 보이는 채로 '올라옴' (climb.step_up 설정이 있을 때만).
+        올라가기 직전 pre_s초 머리 높이(서 있는 높이대 pre_min ~ pre_max, 앉음 아님)를 기준으로,
+        up_s초(2.5초) 안에 rise 이상 올라가 hold_s초 동안 그 높이(hi_min 이상, 흔들림 spread 이하, 그동안 문 조용, 뒷벽 max_y 안)에 머물면 경보.
+        문 조용함은 올라가는 구간 + 올라선 구간만 본다(직전 서 있던 구간은 안 봄): install_vent_kb는 문을 닫자마자(2.7 ~ 3.3초) 올라감.
+        올라가는 구간도 보는 이유: 1105 normal_full_kb_1 나갈 때 문이 열리며(75.4 ~ 78초) 열린 문 반사가 2.0 ~ 2.1 m '머리'로 잡혀 올라옴처럼 보임.
+        들어와서 4초 동안 재는 '서 있던 높이'가 없어도 된다 (record_1111 install_vent_kb: 들어오고 3초 만에 올라섬)."""
+        hold, pre_s, up_s = float(c.get("hold_s", 3.0)), float(c.get("pre_s", 2.0)), float(c.get("up_s", 2.5))
+        q = self.step_q
+        ok, info = False, None
+        t_hi0, t_pre1 = t - hold, t - hold - up_s
+        if q and q[0][0] <= t_pre1 - pre_s:
+            a = np.array([(v[0], v[1], v[2], v[3], v[4]) for v in q], dtype=float)
+            pre = a[(a[:, 0] >= t_pre1 - pre_s) & (a[:, 0] <= t_pre1)]
+            hi = a[a[:, 0] >= t_hi0]
+            pf, hf = pre[np.isfinite(pre[:, 1])], hi[np.isfinite(hi[:, 1])]
+            if (len(pf) >= 0.6 * max(len(pre), 1) and len(hf) >= 0.6 * max(len(hi), 1) and len(pf) and len(hf)
+                    and not pre[:, 4].any() and not a[a[:, 0] >= t_pre1][:, 3].any()):
+                zp, zh = float(np.median(pf[:, 1])), float(np.median(hf[:, 1]))
+                spread = float(np.percentile(hf[:, 1], 90) - np.percentile(hf[:, 1], 10))
+                ok = (c.get("pre_min", 1.30) <= zp <= c.get("pre_max", 1.90) and zh - zp >= c.get("rise", 0.25)
+                      and zh >= c.get("hi_min", 1.65) and spread <= c.get("spread", 0.15)
+                      and float(np.median(hf[:, 2])) <= c.get("max_y", 1.0))
+                info = (zp, zh, hold)
+
+        def reason(d, info=info):
+            return (f"머리가 {info[0]:.2f} m(서 있는 높이)에서 {info[1]:.2f} m로 올라가 {info[2]:.0f}초 넘게 머묾 "
+                    f"({info[1] - info[0]:.2f} m, 변기 등에 올라섬 추정)")
+        return self._track("high", ok, t, 0.0, reason if ok else None, key="high#up", kind="올라섬")
+
+    # ------------------------------------------------------------ 자세 (2026-11-12, 42° 녹화)
+    def _update_seat(self, t: float, hr: dict):
+        """머리가 앉은 높이로 내려와 변기 위(뒷벽 가까이)에서 hold_s초 머물면 '앉음'.
+        42°에서는 앉은 머리가 보여서(사라지지 않아서) 18°용 '사라짐 → 앉음' 판단이 안 됨.
+        record_1111: 앉은 머리 1.15 ~ 1.24 m, 뒷벽에서 0.53 ~ 0.77 m / 서서 숙여 설치 머리 뒷벽에서 0.92 ~ 1.23 m."""
+        sd_cfg = self.head.p.get("seat_detect")
+        if not sd_cfg or hr["head"] is None:
+            self.seat_t0 = None
+            return
+        hz, hx, hy = hr["head"]
+        stand = self.head.cur_base
+        cond = (hy <= sd_cfg["max_y"] and sd_cfg["min_z"] <= hz <= sd_cfg["max_z"]
+                and (stand is None or hz <= stand - sd_cfg["min_drop"]))
+        if cond:
+            if self.seat_t0 is None:
+                self.seat_t0 = t
+            if t - self.seat_t0 >= sd_cfg["hold_s"]:
+                self.seated = True
+        else:
+            self.seat_t0 = None
+        # 일어남: 서 있던 높이를 모를 때도 머리가 앉은 높이 위로 올라가면 풀어 줌
+        if self.seated and hz > sd_cfg["max_z"] + 0.05 and (stand is None or hz >= stand - float(self.head.p.get("stand_back", 0.15))):
+            self.seated = False
+
+    def _posture(self, hr: dict) -> dict | None:
+        if hr["head"] is None:
+            return None
+        hz = hr["head"][0]
+        stand = self.head.cur_base
+        if self.seated:
+            kind = "sit"
+        elif hz < self.head.p["min_height"]:
+            kind = "crouch"
+        elif stand is not None and hz <= stand - self.head.p["drop"]:
+            kind = "bend"
+        else:
+            kind = "stand"
+        return {"kind": kind, "hz": hz}
+
+    def _posture_ok(self, posture: dict | None, zh_mm: float) -> bool:
+        """벽·문 구역 점을 손으로 셀지. 머리를 모르면 예전처럼 셈.
+        sit / crouch → 안 셈 (앉은 엉덩이·허벅지·팔, 쭈그린 옆 몸)
+        bend → 셈 (서서 숙여 벽 낮은 곳 설치: 1111 danger_wall_plain 머리 1.1 m, 점 1.0 m)
+        stand → 구역 점 높이가 머리 - hand_below 이상일 때만 (손을 머리 높이 근처로 듦). 어깨·팔은 머리보다 0.3 m 아래"""
+        if posture is None:
+            return True
+        k = posture["kind"]
+        if k in ("sit", "crouch"):
+            return False
+        if k == "bend":
+            return True
+        if zh_mm < 0:
+            return False
+        return zh_mm / 1000 >= posture["hz"] - float(self.head.p.get("hand_below", 0.15))
 
     # ------------------------------------------------------------ 사건 관리
     def _track(self, roi: str, ok: bool, t: float, alarm_s: float, reason, key: str | None = None,

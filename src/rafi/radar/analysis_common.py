@@ -246,30 +246,42 @@ def compute_features(pcr, stall_path, out_dir, moving=0.4, static=0.15, use_cach
 # normal_full_kb_1 앞 30.6초, entering_kb_4 → exiting_closed_door_kb_1 앞 8.4초).
 # 같은 폴더의 다른 파일 프레임 전체가 이 파일 맨 앞과 똑같으면 그만큼 잘라낸다.
 
-def _frame_hashes(path, out_dir) -> list[str]:
+def _frame_hashes(path, out_dir, db: dict | None = None) -> list[str]:
+    """db를 주면 그 dict를 쓰고 파일에 쓰지 않는다 (prefix_trim이 한 번만 읽고 한 번만 씀)."""
     path = Path(path)
     cache = Path(out_dir) / "features" / "_hashes.json"
-    db = json.loads(cache.read_text(encoding="utf-8")) if cache.exists() else {}
+    own = db is None
+    if own:
+        db = json.loads(cache.read_text(encoding="utf-8")) if cache.exists() else {}
     key = f"{path.name}|{path.stat().st_size}"
     if key not in db:
         db[key] = [hashlib.md5(np.ascontiguousarray(p, dtype=np.float32).tobytes()).hexdigest()[:12]
                    for _, _, _, p in iter_frames(str(path))]
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        cache.write_text(json.dumps(db), encoding="utf-8")
+        if own:
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_text(json.dumps(db), encoding="utf-8")
     return db[key]
 
 
 def prefix_trim(pcr, out_dir) -> dict:
-    """반환: {"frames": 잘라낼 프레임 수, "from": 앞에 붙은 파일 이름} (없으면 frames 0)"""
+    """반환: {"frames": 잘라낼 프레임 수, "from": 앞에 붙은 파일 이름} (없으면 frames 0)
+    (2026-11-12) 해시 캐시(_hashes.json, 수 MB)를 파일마다 다시 읽지 않고 한 번만 읽고 한 번만 쓴다.
+    폴더 녹화 약 110개일 때 캐시가 있어도 약 2초 걸리던 것을 줄임 (실시간 화면 시작 시간)."""
     pcr = Path(pcr)
-    me = _frame_hashes(pcr, out_dir)
+    cache = Path(out_dir) / "features" / "_hashes.json"
+    db = json.loads(cache.read_text(encoding="utf-8")) if cache.exists() else {}
+    n0 = len(db)
+    me = _frame_hashes(pcr, out_dir, db)
     best = {"frames": 0, "from": ""}
     for other in sorted(pcr.parent.glob("*.pcr")):
         if other == pcr:
             continue
-        h = _frame_hashes(other, out_dir)
+        h = _frame_hashes(other, out_dir, db)
         if 5 <= len(h) < len(me) and me[:len(h)] == h and len(h) > best["frames"]:
             best = {"frames": len(h), "from": other.name}
+    if len(db) != n0:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(json.dumps(db), encoding="utf-8")
     return best
 
 
