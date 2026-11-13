@@ -1,0 +1,151 @@
+:root {
+  --bg: #fafaf8;
+  --surface: #ffffff;
+  --text: #1f1f1c;
+  --muted: #6b6a64;
+  --line: #e2e1db;
+  --fixture: #efeee9;
+  --ok-bg: #dff3e4;
+  --ok-text: #1d6b36;
+  --bad-bg: #fbe1e1;
+  --bad-text: #a32020;
+  --l2-bg: #fbe1e1;
+  --l2-text: #a32020;
+  --l2-line: #e07a7a;
+  --l1-bg: #fcefc9;
+  --l1-text: #8a5a00;
+  --l1-line: #e3a72f;
+  --l3-bg: #dfeafb;
+  --l3-text: #1f4f99;
+  --l3-line: #6d9be0;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+}
+
+h1 { margin: 0; font-size: 1.5rem; }
+h2 { margin: 0 0 12px; font-size: 1.1rem; font-weight: 600; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; margin-top: 8px; }
+
+.banner {
+  margin: -16px -16px 16px;
+  padding: 10px 16px;
+  background: var(--bad-bg);
+  color: var(--bad-text);
+  font-weight: 600;
+}
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+#devices { display: contents; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--fixture);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.chip.ok { background: var(--ok-bg); color: var(--ok-text); }
+.chip.bad { background: var(--bad-bg); color: var(--bad-text); }
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.card, .panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+}
+.card .label { color: var(--muted); margin-bottom: 6px; }
+.card .value { font-size: 1.8rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.card .sub { font-size: 0.95rem; font-weight: 400; color: var(--muted); }
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 800px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+#plan { width: 100%; max-height: 70vh; display: block; }
+#plan .room { fill: var(--surface); stroke: var(--text); stroke-width: 0.8; }
+#plan .room.L2 { stroke: var(--l2-line); stroke-width: 2.5; }
+#plan .room.L1 { stroke: var(--l1-line); stroke-width: 2.5; }
+#plan .fixture { fill: var(--fixture); stroke: var(--line); stroke-width: 0.4; }
+#plan .fixture-line { stroke: var(--muted); stroke-width: 1.2; }
+#plan .zone { fill: none; stroke: var(--muted); stroke-width: 0.4; stroke-dasharray: 1.5 1.5; }
+#plan .zone.L2 { fill: var(--l2-bg); stroke: var(--l2-line); stroke-width: 1; stroke-dasharray: none; fill-opacity: 0.85; }
+#plan .zone.L1 { fill: var(--l1-bg); stroke: var(--l1-line); stroke-width: 1; stroke-dasharray: none; fill-opacity: 0.85; }
+#plan text { font-size: 4px; fill: var(--muted); }
+#plan text.zone-label { fill: var(--text); font-weight: 600; }
+#plan text.room-alert { font-size: 5px; font-weight: 700; }
+#plan text.room-alert.L2 { fill: var(--l2-text); }
+#plan text.room-alert.L1 { fill: var(--l1-text); }
+#plan .radar { fill: var(--l3-line); }
+
+.alerts { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
+.alert {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 6px;
+}
+.alert.acked { opacity: 0.6; }
+.alert .head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.alert .where { font-weight: 600; }
+.alert .time { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.alert .evidence { margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 0.92rem; }
+.alert .actions { display: flex; align-items: center; gap: 8px; }
+
+.badge { padding: 3px 10px; border-radius: 6px; font-weight: 600; font-size: 0.9rem; white-space: nowrap; }
+.badge.L2 { background: var(--l2-bg); color: var(--l2-text); }
+.badge.L1 { background: var(--l1-bg); color: var(--l1-text); }
+.badge.L3 { background: var(--l3-bg); color: var(--l3-text); }
+
+.tag { padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; font-size: 0.8rem; color: var(--muted); }
+
+button {
+  font: inherit;
+  padding: 5px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+button:hover:not(:disabled) { background: var(--fixture); }
+button:disabled { cursor: default; opacity: 0.6; }
+.done { color: var(--ok-text); font-size: 0.92rem; }
+.error { color: var(--bad-text); font-size: 0.9rem; }

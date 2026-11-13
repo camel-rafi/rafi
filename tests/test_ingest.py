@@ -172,9 +172,11 @@ def test_repo_config_is_valid():
 def test_device_with_unknown_room_is_rejected(tmp_path):
     path = tmp_path / "bad.yaml"
     path.write_text(
-        "rooms: {stall-1: {name: 칸 1}}\n"
+        "rooms: {stall-1: {name: 칸 1, size_cm: {x: 97, y: 137.5, z: 228}, zones: {}}}\n"
         "devices: {radar-1: {kind: radar, room: stall-2}}\n"
-        "device_timeout_sec: 30\n",
+        "device_timeout_sec: 30\n"
+        "fusion_window_sec: 120\n"
+        "cleaning_windows: []\n",
         encoding="utf-8",
     )
     with pytest.raises(ValidationError, match="stall-2"):
@@ -185,8 +187,10 @@ def test_device_with_unknown_room_is_rejected(tmp_path):
 def test_invalid_or_missing_timeout_is_rejected(tmp_path, timeout):
     path = tmp_path / "bad.yaml"
     path.write_text(
-        "rooms: {stall-1: {name: 칸 1}}\n"
-        "devices: {radar-1: {kind: radar, room: stall-1}}\n" + timeout,
+        "rooms: {stall-1: {name: 칸 1, size_cm: {x: 97, y: 137.5, z: 228}, zones: {}}}\n"
+        "devices: {radar-1: {kind: radar, room: stall-1}}\n"
+        "fusion_window_sec: 120\n"
+        "cleaning_windows: []\n" + timeout,
         encoding="utf-8",
     )
     with pytest.raises(ValidationError, match="device_timeout_sec"):
