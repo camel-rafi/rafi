@@ -165,12 +165,12 @@ def main():
                                ("danger_tissue_sitting", "tissue_use", "dispenser_low"),
                                ("danger_under_shelve", "normal_full", "under_shelf"),
                                ("danger_under_shelve", "pad_bin", "any"),
-                               ("install_vent", "normal_full", "high"),
-                               ("install_vent", "exiting_closed_door", "high"),
-                               ("install_vent", "shaking_door", "any"),
-                               ("install_vent", "normal_full", "climb"),
-                               ("install_vent", "exiting_closed_door", "climb"),
-                               ("install_vent", "sitting_still", "climb")]:
+                               ("danger_install_vent", "normal_full", "high"),
+                               ("danger_install_vent", "exiting_closed_door", "high"),
+                               ("danger_install_vent", "shaking_door", "any"),
+                               ("danger_install_vent", "normal_full", "climb"),
+                               ("danger_install_vent", "exiting_closed_door", "climb"),
+                               ("danger_install_vent", "sitting_still", "climb")]:
         dv = [r.get(zone, 0) for r in by_act.get(d_act, [])]
         nv = [r.get(zone, 0) for r in by_act.get(n_act, [])]
         if dv and nv:

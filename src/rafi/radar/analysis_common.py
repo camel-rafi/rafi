@@ -28,21 +28,23 @@ TARGET_ZONE = {
     "danger_under_shelve": "under_shelf",
     "pad_bin": "sanbox_top",  # 투입구가 위쪽
     "install_vent": "high",
+    "danger_install_vent": "high",  # 2026-11-10 녹화 이름 앞에 danger_를 붙임
 }
 
 # 위험 동작 (경보가 울려야 하는 녹화). danger_로 시작하는 것 + 아래 목록
-DANGER_ACTIONS = {"install_vent"}
+DANGER_ACTIONS = {"install_vent"}  # 예전 이름. 11-10부터 녹화는 danger_install_vent_*
 
 
 def classify(action: str) -> str:
     """danger: 경보가 울려야 함 / normal: 울리면 안 됨 (빈 칸, 문 흔들림 포함) / calib: 평가에서 제외 (캔 보정)"""
-    if action.startswith("cal_can"):
+    if action.startswith(("cal_", "excluded_")):  # 보정 녹화, 잘못 찍은 녹화(2026-11-10: excluded_ 접두어)
         return "calib"
     if action.startswith("danger") or action in DANGER_ACTIONS:
         return "danger"
     return "normal"
 
-NAME_RE = re.compile(r"^(?P<action>.+?)_(?P<person>[a-z]{2})(?:_(?P<rep>\d+))?$")
+# 반복 번호는 _1 또는 바로 붙은 1 모두 받음 (install_vent_hs1 → install_vent, hs, 1). 2026-11-10: 예전에는 hs1을 못 읽어 install_vent_hs1·hs2가 정상으로 분류됐음
+NAME_RE = re.compile(r"^(?P<action>.+?)_(?P<person>[a-z]{2})(?:_?(?P<rep>\d+))?$")
 
 
 def parse_name(path) -> dict:
@@ -244,30 +246,42 @@ def compute_features(pcr, stall_path, out_dir, moving=0.4, static=0.15, use_cach
 # normal_full_kb_1 앞 30.6초, entering_kb_4 → exiting_closed_door_kb_1 앞 8.4초).
 # 같은 폴더의 다른 파일 프레임 전체가 이 파일 맨 앞과 똑같으면 그만큼 잘라낸다.
 
-def _frame_hashes(path, out_dir) -> list[str]:
+def _frame_hashes(path, out_dir, db: dict | None = None) -> list[str]:
+    """db를 주면 그 dict를 쓰고 파일에 쓰지 않는다 (prefix_trim이 한 번만 읽고 한 번만 씀)."""
     path = Path(path)
     cache = Path(out_dir) / "features" / "_hashes.json"
-    db = json.loads(cache.read_text(encoding="utf-8")) if cache.exists() else {}
+    own = db is None
+    if own:
+        db = json.loads(cache.read_text(encoding="utf-8")) if cache.exists() else {}
     key = f"{path.name}|{path.stat().st_size}"
     if key not in db:
         db[key] = [hashlib.md5(np.ascontiguousarray(p, dtype=np.float32).tobytes()).hexdigest()[:12]
                    for _, _, _, p in iter_frames(str(path))]
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        cache.write_text(json.dumps(db), encoding="utf-8")
+        if own:
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_text(json.dumps(db), encoding="utf-8")
     return db[key]
 
 
 def prefix_trim(pcr, out_dir) -> dict:
-    """반환: {"frames": 잘라낼 프레임 수, "from": 앞에 붙은 파일 이름} (없으면 frames 0)"""
+    """반환: {"frames": 잘라낼 프레임 수, "from": 앞에 붙은 파일 이름} (없으면 frames 0)
+    (2026-11-12) 해시 캐시(_hashes.json, 수 MB)를 파일마다 다시 읽지 않고 한 번만 읽고 한 번만 쓴다.
+    폴더 녹화 약 110개일 때 캐시가 있어도 약 2초 걸리던 것을 줄임 (실시간 화면 시작 시간)."""
     pcr = Path(pcr)
-    me = _frame_hashes(pcr, out_dir)
+    cache = Path(out_dir) / "features" / "_hashes.json"
+    db = json.loads(cache.read_text(encoding="utf-8")) if cache.exists() else {}
+    n0 = len(db)
+    me = _frame_hashes(pcr, out_dir, db)
     best = {"frames": 0, "from": ""}
     for other in sorted(pcr.parent.glob("*.pcr")):
         if other == pcr:
             continue
-        h = _frame_hashes(other, out_dir)
+        h = _frame_hashes(other, out_dir, db)
         if 5 <= len(h) < len(me) and me[:len(h)] == h and len(h) > best["frames"]:
             best = {"frames": len(h), "from": other.name}
+    if len(db) != n0:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(json.dumps(db), encoding="utf-8")
     return best
 
 

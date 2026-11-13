@@ -28,3 +28,6 @@ data/*
 .vscode/
 .DS_Store
 Thumbs.db
+
+# 분석·실시간 결과 (자동 생성)
+out/

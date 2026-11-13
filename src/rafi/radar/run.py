@@ -12,6 +12,8 @@ r"""RaFi 실시간 레이더 탐지기 실행 (레이더 PC에서)
 출력
   화면에 경보 한 줄씩 (항상), --jsonl 파일에 모든 메시지, --post 주소로 HTTP POST (서버가 정해지면)
 
+화면으로 쓰려면: python -m rafi.radar.gui (같은 탐지 코드, 입력칸과 시작 버튼)
+
 사용 예
   python -m rafi.radar.run --replay ..\sg-radar-tools\recordings\record_1102\danger_tissue_hs_1.pcr --bg-folder ..\sg-radar-tools\recordings\record_1102
   python -m rafi.radar.run --host 127.0.0.1 --bg-folder ..\sg-radar-tools\recordings\record_1102 --jsonl out\rt\messages.jsonl
@@ -21,13 +23,11 @@ r"""RaFi 실시간 레이더 탐지기 실행 (레이더 PC에서)
 from __future__ import annotations
 
 import argparse
-import time
-from datetime import datetime, timedelta
+import sys
+import threading
 
-from .analysis_common import background_codes, prefix_trim
-from .detector import Detector, learn_background
-from .messages import KST, HttpSink, JsonlSink, PrintSink, envelope
-from .stream import ReplaySource, TcpSource
+from .messages import PrintSink
+from .session import Settings, run_session
 
 
 def main():
@@ -48,66 +48,31 @@ def main():
     ap.add_argument("--quiet", action="store_true", help="화면에는 경보만")
     a = ap.parse_args()
 
-    skip = prefix_trim(a.replay, "out/rt")["frames"] if a.replay else 0
-    source = ReplaySource(a.replay, a.speed, skip) if a.replay else TcpSource(a.host, a.port)
-    frames = iter(source)
+    s = Settings(source="replay" if a.replay else "radar", host=a.host or "", port=a.port, replay=a.replay or "",
+                 speed=a.speed, stall=a.stall, bg_mode="folder" if a.bg_folder else "learn",
+                 learn_s=a.learn_bg or 0.0, bg_folder=a.bg_folder or "", room=a.room, device_id=a.device_id,
+                 post=a.post or "", jsonl=a.jsonl or "", out_dir="out/rt")
+    printer = PrintSink(quiet=a.quiet)
 
-    if a.bg_folder:
-        bg_codes = background_codes(a.stall, a.bg_folder, "out/rt")
-        print(f"배경 칸 {len(bg_codes)}개 (빈 칸 녹화에서)", flush=True)
-    else:
-        print(f"배경 배우는 중: {a.learn_bg:.0f}초 동안 칸을 비워 두세요")
-        bg_codes = learn_background(frames, a.learn_bg)
-        print(f"배경 칸 {len(bg_codes)}개 배움")
+    def emit(kind, data):
+        if kind == "msg":
+            printer.send(data)
+        elif kind in ("log", "error"):
+            print(("[오류] " if kind == "error" else "") + data, file=sys.stderr if kind == "error" else sys.stdout,
+                  flush=True)
+            if kind == "log" and data == "탐지 시작":
+                print("(Ctrl + C로 끝내기)", flush=True)
 
-    sinks = [PrintSink(quiet=a.quiet)]
-    if a.jsonl:
-        sinks.append(JsonlSink(a.jsonl))
-    if a.post:
-        http = HttpSink(a.post)
-        sinks.append(http)
-    send = lambda m: [s.send(m) for s in sinks]  # noqa: E731
-
-    clock = None  # 실시간: 기본 시계
-    if a.replay:  # 재생: 녹화 시각을 '지금'부터 흐르게 (speed가 1이 아니면 사건 시각도 녹화 기준 초로 계산됨)
-        from .detector import sim_clock
-        from .radar_io import iter_frames
-        t_first = next(iter(iter_frames(a.replay)))[2]
-        clock = sim_clock(datetime.now(KST) - timedelta(seconds=t_first))
-    det = Detector(a.stall, bg_codes, room=a.room, device_id=a.device_id, clock=clock)
-    t_occ = t_stat = None
-    n_frames, t_rate = 0, time.monotonic()
-    print("탐지 시작 (Ctrl + C로 끝내기)", flush=True)
+    stop = threading.Event()
+    th = threading.Thread(target=run_session, args=(s, stop, emit), daemon=True)
+    th.start()
     try:
-        for t, pts in frames:
-            now = time.monotonic()
-            if pts is None:  # 레이더 연결 끊김: 열린 사건을 닫고 상태를 바로 알림
-                for m in det.close_all():
-                    send(m)
-                send(envelope("radar.status", a.device_id, {"sensor_ok": False, "fps": 0.0,
-                                                            "error": source.last_error or "레이더 연결 끊김"},
-                              datetime.now(KST)))
-                t_stat = now
-                continue
-            if pts is not None:
-                for m in det.step(t, pts):
-                    send(m)
-                n_frames += 1
-                if t_occ is None or t - t_occ >= 1.0:  # radar.occupancy 1초마다
-                    t_occ = t
-                    send(det.occupancy())
-            if t_stat is None or now - t_stat >= 10.0:  # radar.status 10초마다
-                fps = n_frames / max(now - t_rate, 1e-6)
-                n_frames, t_rate, t_stat = 0, now, now
-                # 서버 규격: sensor_ok(센서 데이터를 받고 있나), fps, error(문자열 하나 또는 null)
-                error = source.last_error if not source.connected else None
-                send(envelope("radar.status", a.device_id,
-                              {"sensor_ok": bool(source.connected), "fps": round(fps, 1), "error": error or None},
-                              datetime.now(KST)))
+        while th.is_alive():
+            th.join(0.2)
     except KeyboardInterrupt:
-        print("끝냄")
-    for m in det.close_all():  # 재생이 끝났거나 Ctrl + C
-        send(m)
+        print("끝내는 중", flush=True)
+        stop.set()
+        th.join(10)
 
 
 if __name__ == "__main__":

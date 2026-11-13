@@ -14,7 +14,10 @@
 from __future__ import annotations
 
 import json
+import queue
 import sys
+import threading
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -80,14 +83,44 @@ class JsonlSink:
 
 
 class HttpSink:
-    """서버에 HTTP POST (JSON 본문). 실패해도 탐지는 멈추지 않고 오류만 기록."""
+    """서버에 HTTP POST (JSON 본문). 실패해도 탐지는 멈추지 않고 오류만 기록.
 
-    def __init__(self, url: str, timeout_s: float = 1.0):
+    보내기는 별도 스레드에서 한다: 서버가 느리거나 꺼져 있어도 프레임 처리가 밀리지 않게.
+    대기열이 가득 차면(서버가 오래 안 받음) 가장 오래된 메시지를 버린다.
+    ok / errors / dropped: 보낸 수, 실패 수, 버린 수
+    """
+
+    def __init__(self, url: str, timeout_s: float = 1.0, max_queue: int = 500):
         self.url, self.timeout_s = url, timeout_s
+        self.ok = 0
         self.errors = 0
+        self.dropped = 0
         self.last_error = ""
+        self.q: queue.Queue = queue.Queue(max_queue)
+        threading.Thread(target=self._loop, daemon=True).start()
 
     def send(self, msg: dict):
+        try:
+            self.q.put_nowait(msg)
+        except queue.Full:
+            try:
+                self.q.get_nowait()
+                self.dropped += 1
+            except queue.Empty:
+                pass
+            self.q.put_nowait(msg)
+
+    def flush(self, timeout_s: float = 3.0):
+        """대기열이 빌 때까지 기다림 (끝낼 때)."""
+        end = time.monotonic() + timeout_s
+        while not self.q.empty() and time.monotonic() < end:
+            time.sleep(0.05)
+
+    def _loop(self):
+        while True:
+            self._post(self.q.get())
+
+    def _post(self, msg: dict):
         data = json.dumps(to_server(msg), ensure_ascii=False).encode("utf-8")
         req = urllib.request.Request(self.url, data=data, headers={"Content-Type": "application/json"}, method="POST")
         try:
@@ -100,6 +133,7 @@ class HttpSink:
             self.errors += 1
             self.last_error = f"{type(e).__name__}: {e}"
         else:
+            self.ok += 1
             return
         if self.errors in (1, 10, 100) or self.errors % 1000 == 0:
             print(f"[주의] 서버 전송 실패 {self.errors}회: {self.last_error}", file=sys.stderr, flush=True)
