@@ -10,44 +10,34 @@
   <div id="connection" class="banner" hidden>서버 연결이 끊겼습니다. 다시 연결하는 중…</div>
 
   <header class="top">
-    <div>
-      <h1>RaFi 관리자</h1>
+    <div class="brand">
+      <p class="title">RaFi 관리자</p>
       <p id="room-name" class="muted">불러오는 중…</p>
     </div>
+    <nav class="nav" aria-label="주 메뉴">
+      <a href="#/" data-route="home">개요</a>
+      <a href="#/alerts" data-route="alerts">경보 <span id="nav-unacked" class="count" hidden></span></a>
+      <a href="#/space" data-route="space">공간</a>
+    </nav>
     <div class="chips">
       <span id="cleaning" class="chip"></span>
       <span id="devices"></span>
     </div>
   </header>
 
-  <section class="summary">
-    <div class="card">
-      <p class="label">미확인 경보</p>
-      <p id="unacked-count" class="value">-</p>
-    </div>
-    <div class="card">
-      <p class="label">오늘 경보</p>
-      <p class="value"><span id="today-count">-</span> <span id="today-cleaning" class="sub"></span></p>
-    </div>
-    <div class="card">
-      <p class="label">마지막 수신</p>
-      <p id="last-seen" class="value">-</p>
-    </div>
-  </section>
+  <main id="view" class="page"></main>
 
-  <main class="layout">
-    <section class="panel">
-      <h2>평면도</h2>
-      <svg id="plan" role="img" aria-label="칸 평면도"></svg>
-      <p class="muted small">위에서 본 모습 · 위쪽이 뒷벽, 아래쪽이 출입문</p>
-    </section>
-    <section class="panel">
-      <h2>경보 목록</h2>
-      <ol id="alerts" class="alerts"></ol>
-      <p id="no-alerts" class="muted" hidden>경보가 없습니다.</p>
-    </section>
-  </main>
-
-  <script src="app.js"></script>
+  <!-- 순서대로 읽는다: 도우미 → 서버 → 상태 → 화면 → 화면 이동 → 시작 -->
+  <script defer src="js/dom.js"></script>
+  <script defer src="js/api.js"></script>
+  <script defer src="js/store.js"></script>
+  <script defer src="js/views/plan.js"></script>
+  <script defer src="js/views/home.js"></script>
+  <script defer src="js/views/alerts.js"></script>
+  <script defer src="js/views/detail.js"></script>
+  <script defer src="js/views/room3d.js"></script>
+  <script defer src="js/views/space.js"></script>
+  <script defer src="js/router.js"></script>
+  <script defer src="app.js"></script>
 </body>
 </html>
