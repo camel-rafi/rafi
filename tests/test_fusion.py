@@ -10,7 +10,7 @@ T0 = datetime(2026, 11, 7, 12, 0, tzinfo=UTC)
 WINDOW = timedelta(seconds=120)
 
 
-def radar(roi: str = "vent", start: int = 0, end: int = 10) -> Detection:
+def radar(roi: str = "vent", start: int = 0, end: int = 10, event_id: str | None = None) -> Detection:
     return Detection(
         source="radar",
         event_start=T0 + timedelta(seconds=start),
@@ -19,6 +19,7 @@ def radar(roi: str = "vent", start: int = 0, end: int = 10) -> Detection:
         score=0.8,
         method="radar-v1",
         reasons=[],
+        event_id=event_id,
     )
 
 
@@ -183,3 +184,42 @@ def test_every_arrival_order_gives_l2_for_both_zones_with_rf_evidence(order):
     assert sorted(a.roi for a in alerts) == ["door", "vent"]
     assert {a.grade for a in alerts} == {"L2"}
     assert all(any(d.source == "rf" for d in a.detections) for a in alerts)
+
+
+# ---------- 같은 사건(event_id) ----------
+
+
+def test_same_event_keeps_alert_and_takes_latest_roi():
+    # 손 머묾(디스펜서 위)으로 시작한 사건이 머리 숙임(칸 전체)만 남은 경우
+    first = radar("dispenser_top", 0, 10, event_id="e1")
+    update = radar("stall", 0, 12, event_id="e1")
+    changes = fuse(update, [alert(1, "L1", "dispenser_top", first)], WINDOW)
+    assert changes == [AlertChange(1, "L1", "stall", [update])]
+
+
+def test_same_event_is_joined_beyond_time_window():
+    first = radar("vent", 0, 10, event_id="e1")
+    late = radar("vent", 200, 210, event_id="e1")
+    assert fuse(late, [alert(1, "L1", "vent", first)], WINDOW)[0].alert_id == 1
+
+
+def test_same_event_is_preferred_over_nearby_l3():
+    first = radar("vent", 0, 10, event_id="e1")
+    l3 = alert(2, "L3", None, rf(start=5, end=20))
+    update = radar("vent", 0, 12, event_id="e1")
+    change = fuse(update, [alert(1, "L1", "vent", first), l3], WINDOW)[0]
+    assert change.alert_id == 1
+    assert change.grade == "L2"  # 가까운 RF 근거는 그대로 가져온다
+
+
+def test_different_event_in_other_roi_creates_new_alert():
+    first = radar("vent", 0, 10, event_id="e1")
+    other = radar("door", 5, 15, event_id="e2")
+    assert fuse(other, [alert(1, "L1", "vent", first)], WINDOW)[0].alert_id is None
+
+
+def test_without_event_id_roi_change_still_splits():
+    # event_id를 보내기 전의 레이더는 지금과 같이 동작한다
+    first = radar("dispenser_top", 0, 10)
+    update = radar("stall", 0, 12)
+    assert fuse(update, [alert(1, "L1", "dispenser_top", first)], WINDOW)[0].alert_id is None

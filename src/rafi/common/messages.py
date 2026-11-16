@@ -47,6 +47,10 @@ class Detection(Model):
     score: float = Field(ge=0, le=1)
     method: str = Field(min_length=1)
     reasons: list[str]
+    # 레이더는 한 사건이 이어지는 동안 2초마다 같은 event_id로 갱신을 보낸다 (규약 8번).
+    # 서버는 이 값으로 갱신을 같은 경보에 붙인다. 재시작해도 겹치지 않는 값(UUID 등)이어야 한다.
+    # 없으면(RF, event_id를 보내기 전의 레이더) 지금처럼 구역과 사건 시각으로 묶는다.
+    event_id: str | None = Field(default=None, min_length=1, max_length=64)
 
     @model_validator(mode="after")
     def check_consistency(self) -> Self:
@@ -111,6 +115,9 @@ class RfWindow(Model):
 
 class Evidence(Model):
     source: Source
+    event_start: AwareDatetime
+    event_end: AwareDatetime
+    event_id: str | None = None  # 대시보드가 같은 사건의 갱신을 묶을 때 쓴다
     score: float = Field(ge=0, le=1)
     method: str = Field(min_length=1)
     reasons: list[str]

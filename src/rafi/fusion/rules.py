@@ -1,8 +1,12 @@
 """융합 규칙. 판단 하나와 미확인 경보 목록을 받아 경보를 어떻게 바꿀지 정한다.
 
 DB를 모르는 순수 함수라서 규칙만 따로 시험할 수 있다.
-도착 순서가 아니라 사건 시각으로 비교한다. 레이더는 사건이 끝난 뒤 보내므로
-RF가 먼저 도착하는 경우가 흔한데, 순서와 관계없이 같은 등급이 나와야 한다.
+도착 순서가 아니라 사건 시각으로 비교한다. RF는 15초 지속을 확인한 뒤에 판단이 나오므로
+레이더보다 먼저 도착하기도 늦게 도착하기도 하는데, 순서와 관계없이 같은 등급이 나와야 한다.
+
+레이더 판단에 event_id가 있으면 같은 사건의 갱신이다(사건 중 2초마다 옴, 규약 8번).
+같은 event_id가 붙은 미확인 경보가 있으면 구역이 바뀌었거나 시간창을 넘었어도 그 경보에 붙이고,
+경보의 구역은 최신 판단의 구역으로 바꾼다. (확인된 경보에 이어 붙이는 것은 server/alerts.py가 한다)
 """
 
 from dataclasses import dataclass
@@ -40,6 +44,7 @@ def fuse(
 def _fuse_radar(
     detection: Detection, open_alerts: list[OpenAlert], window: timedelta
 ) -> AlertChange:
+    same_event = [alert for alert in open_alerts if has_event(alert, detection.event_id)]
     same_roi = [
         alert
         for alert in open_alerts
@@ -50,8 +55,9 @@ def _fuse_radar(
         for alert in open_alerts
         if alert.grade == "L3" and _nearby(detection, alert, window, "rf")
     ]
-    # 같은 구역 경보와 L3가 모두 가까우면 L3에만 붙인다. 위치 없는 L3가 남지 않게 하기 위함이다
-    target = _latest(rf_only) or _latest(same_roi)
+    # 같은 사건의 경보가 있으면 무조건 그 경보다. 없으면 같은 구역 경보와 L3 중에서 고르는데,
+    # 둘 다 가까우면 L3에만 붙인다. 위치 없는 L3가 남지 않게 하기 위함이다
+    target = _latest(same_event) or _latest(rf_only) or _latest(same_roi)
 
     # RF가 먼저 와서 다른 구역 경보에 이미 붙었어도, 시간창 안이면 이 구역도 L2가 되어야 한다
     rf_evidence: list[Detection] = []
@@ -89,6 +95,11 @@ def _fuse_rf(
     target = _latest(same_device)
     alert_id = target.alert_id if target else None
     return [AlertChange(alert_id, "L3", None, [detection])]
+
+
+def has_event(alert: OpenAlert, event_id: str | None) -> bool:
+    """경보에 이 사건(event_id)의 판단이 붙어 있는지. event_id가 없으면 항상 False."""
+    return event_id is not None and any(d.event_id == event_id for d in alert.detections)
 
 
 def _nearby(detection: Detection, alert: OpenAlert, window: timedelta, source: str) -> bool:

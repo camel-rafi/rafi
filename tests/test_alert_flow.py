@@ -32,7 +32,9 @@ def envelope(type_: str, payload: dict, device_id: str) -> dict:
     }
 
 
-def radar_message(start: datetime, roi: str = "dispenser_top", seconds: int = 10) -> dict:
+def radar_message(
+    start: datetime, roi: str = "dispenser_top", seconds: int = 10, event_id: str | None = None
+) -> dict:
     payload = {
         "source": "radar",
         "event_start": start.isoformat(),
@@ -42,7 +44,14 @@ def radar_message(start: datetime, roi: str = "dispenser_top", seconds: int = 10
         "method": "radar-v1",
         "reasons": ["천장 부근 정지"],
     }
+    if event_id is not None:
+        payload["event_id"] = event_id
     return envelope("radar.detection", payload, "radar-1")
+
+
+def ack_all(db_path: Path) -> None:
+    with sqlite3.connect(db_path) as db:
+        db.execute("UPDATE alerts SET status = 'acked', acked_at = '2026-11-07T12:00:30+09:00'")
 
 
 def rf_window(start: datetime, bytes_up: int = 30_000) -> dict:
@@ -225,3 +234,32 @@ def write_config(tmp_path: Path, cleaning: str) -> Path:
 def test_invalid_cleaning_window_is_rejected(tmp_path, cleaning):
     with pytest.raises(ValidationError, match="cleaning_windows"):
         load_config(write_config(tmp_path, cleaning))
+
+
+# ---------- 같은 사건(event_id, 규약 8번) ----------
+
+
+def test_same_event_with_roi_change_keeps_one_alert(client, db_path):
+    client.post(URL, json=radar_message(local(12), "dispenser_top", 3, event_id="e1"))
+    client.post(URL, json=radar_message(local(12), "stall", 5, event_id="e1"))
+    assert alerts(db_path) == [("L1", "unacked", "stall-1", "stall", 0)]
+    assert detections(db_path) == [(1, "radar"), (1, "radar")]
+
+
+def test_same_event_after_ack_continues_acked_alert(client, db_path):
+    client.post(URL, json=radar_message(local(12), event_id="e1"))
+    ack_all(db_path)
+
+    client.post(URL, json=radar_message(local(12), seconds=12, event_id="e1"))
+
+    assert alerts(db_path) == [("L1", "acked", "stall-1", "dispenser_top", 0)]
+    assert detections(db_path) == [(1, "radar"), (1, "radar")]
+
+
+def test_new_event_after_ack_creates_new_alert(client, db_path):
+    client.post(URL, json=radar_message(local(12), event_id="e1"))
+    ack_all(db_path)
+
+    client.post(URL, json=radar_message(local(12), seconds=12, event_id="e2"))
+
+    assert [row[:2] for row in alerts(db_path)] == [("L1", "acked"), ("L1", "unacked")]
