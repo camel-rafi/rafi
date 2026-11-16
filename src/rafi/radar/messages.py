@@ -4,7 +4,7 @@
   {"schema": "1.0", "type": ..., "message_id": uuid, "device_id": ..., "sent_at": ISO 시각(+09:00), "payload": {...}}
 
 서버 규격: camel-rafi/rafi의 src/rafi/common/messages.py (규격에 없는 칸이 있으면 서버가 422로 거부).
-탐지기는 평가·화면 출력에 쓰는 내부 칸(event_id, ongoing, hidden, stand_height 등)을 payload에 같이 넣고,
+탐지기는 평가·화면 출력에 쓰는 내부 칸(ongoing, hidden, stand_height 등)을 payload에 같이 넣고,
 서버·JSONL로 나갈 때만 to_server()가 규격 칸만 남긴다.
 
 전송 방식: 레이더 PC → 서버는 HTTP POST (http://서버주소:8000/api/v1/messages, camel-rafi/rafi PR #5).
@@ -34,7 +34,8 @@ def iso(dt: datetime) -> str:
 
 # 서버 규격(rafi.common.messages)의 payload 칸. 여기 없는 칸은 서버로 보내지 않는다.
 SERVER_FIELDS = {
-    "radar.detection": ("source", "event_start", "event_end", "roi", "device", "rssi_mean", "score", "method", "reasons"),
+    "radar.detection": ("source", "event_start", "event_end", "roi", "device", "rssi_mean", "score", "method", "reasons",
+                        "event_id"),  # event_id: 같은 사건의 갱신을 서버가 묶는 데 씀 (규약 8번)
     "radar.status": ("sensor_ok", "fps", "error"),
     "radar.occupancy": ("person_count", "zones"),
 }

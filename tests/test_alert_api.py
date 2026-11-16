@@ -89,9 +89,17 @@ def test_alert_contains_room_and_evidence(client):
     assert alert["room"] == "stall-1"
     assert alert["roi"] == "dispenser_top"
     assert alert["acked_at"] is None
-    assert alert["evidence"] == [
-        {"source": "radar", "score": 0.8, "method": "radar-v1", "reasons": ["천장 부근 정지"]}
-    ]
+    [evidence] = alert["evidence"]
+    assert {key: evidence[key] for key in ("source", "score", "method", "reasons", "event_id")} == {
+        "source": "radar",
+        "score": 0.8,
+        "method": "radar-v1",
+        "reasons": ["천장 부근 정지"],
+        "event_id": None,
+    }
+    # 대시보드가 근거를 사건별로 묶고 시간 흐름을 그릴 때 쓴다
+    assert datetime.fromisoformat(evidence["event_start"]) == local(12)
+    assert datetime.fromisoformat(evidence["event_end"]) == local(12) + timedelta(seconds=10)
 
 
 def test_promoted_alert_has_both_evidence(client):

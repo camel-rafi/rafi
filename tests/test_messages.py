@@ -55,8 +55,24 @@ ALERT = {
     "acked_at": None,
     "in_cleaning_window": False,
     "evidence": [
-        {"source": "radar", "score": 0.81, "method": "rule-v1", "reasons": ["팔 높음 지속 19초"]},
-        {"source": "rf", "score": 0.74, "method": "rf-rule-v1", "reasons": ["새 기기 업링크 지속 32초"]},
+        {
+            "source": "radar",
+            "event_start": "2026-10-20T14:02:51+09:00",
+            "event_end": "2026-10-20T14:03:10+09:00",
+            "event_id": "3f1c2b7e-0d4a-4e8b-9c1f-2a6d5e8b7c90",
+            "score": 0.81,
+            "method": "rule-v1",
+            "reasons": ["팔 높음 지속 19초"],
+        },
+        {
+            "source": "rf",
+            "event_start": "2026-10-20T14:03:10+09:00",
+            "event_end": "2026-10-20T14:03:42+09:00",
+            "event_id": None,
+            "score": 0.74,
+            "method": "rf-rule-v1",
+            "reasons": ["새 기기 업링크 지속 32초"],
+        },
     ],
 }
 
@@ -132,11 +148,21 @@ def test_invalid_envelope_is_rejected(overrides):
         {"source": "rf", "device": "cam-01"},  # radar.detection의 출처는 레이더만 허용
         {"room": "stall-1"},  # room은 서버가 관리
         {"rssi_avg": -48},  # 규격에 없는 필드
+        {"event_id": ""},
+        {"event_id": "x" * 65},
     ],
 )
 def test_invalid_radar_detection_is_rejected(changes):
     with pytest.raises(ValidationError):
         parse_sensor_message(envelope("radar.detection", {**DETECTION, **changes}))
+
+
+def test_radar_detection_event_id_is_optional():
+    # event_id를 보내기 전의 레이더와 가짜 송신기도 그대로 받아야 한다
+    assert parse_sensor_message(envelope("radar.detection", DETECTION)).payload.event_id is None
+    event_id = "3f1c2b7e-0d4a-4e8b-9c1f-2a6d5e8b7c90"
+    message = parse_sensor_message(envelope("radar.detection", {**DETECTION, "event_id": event_id}))
+    assert message.payload.event_id == event_id
 
 
 def test_negative_rf_count_is_rejected():

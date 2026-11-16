@@ -36,9 +36,9 @@ rule-v3 (2026-11-10): 점 사라짐은 다시 나타날 때의 동작으로 판�
 
 from __future__ import annotations
 
-import itertools
 import json
 import time
+import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -118,7 +118,6 @@ class Detector:
         self.update_s, self.merge_gap_s = update_s, merge_gap_s
         # 시계: 탐지기 시각(초) → 실제 시각. 기본은 실시간(t = time.monotonic()), 재생은 rt_run·rt_eval이 따로 넘김
         self.clock = clock or live_clock
-        self._ids = itertools.count(1)
         self.zone_tot: dict = {}  # 총 시간 방식 구역: 구역 이름 → deque[(t, dt)] (조건이 맞은 프레임)
         self.zw = {z["name"]: Window(window) for z in self.zones}  # 구역별 [점 있음, 전체, 느린, 떨림, 머리차 유효, 머리차 충족]
         self.events: dict[str, Event] = {}  # 판단별 진행 중 상태 (보내지 않음)
@@ -555,7 +554,8 @@ class Detector:
         if active:
             active.sort(key=lambda e: -e.score)
             if c is None:
-                c = Event(event_id=f"{self.device_id}-{next(self._ids)}", roi="", start=min(e.start for e in active),
+                # 사건 번호: 서버가 같은 사건의 갱신을 묶는 데 쓴다. 재시작·재생해도 겹치지 않게 UUID (규약 8번)
+                c = Event(event_id=f"{self.device_id}-{uuid.uuid4()}", roi="", start=min(e.start for e in active),
                           last_true=t)
                 self.combo = c
             c.start = min(c.start, min(e.start for e in active))

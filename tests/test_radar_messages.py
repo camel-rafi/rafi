@@ -1,6 +1,6 @@
 """레이더가 보내는 메시지가 서버 규격(rafi.common.messages)과 맞는지 확인한다.
 
-레이더 쪽 messages.py는 내부 칸(event_id, ongoing 등)을 빼고 서버 규격 칸만 보낸다(to_server).
+레이더 쪽 messages.py는 내부 칸(ongoing 등)을 빼고 서버 규격 칸만 보낸다(to_server).
 서버 규격이 바뀌었는데 레이더 쪽 칸 목록을 안 고치면 여기서 실패한다.
 """
 
@@ -29,9 +29,8 @@ def test_server_fields_match_schema(msg_type, model):
     assert set(SERVER_FIELDS[msg_type]) == set(model.model_fields)
 
 
-def test_detection_with_internal_fields_passes_server_schema():
-    now = datetime(2026, 11, 5, 13, 36, tzinfo=KST)
-    payload = {
+def detection_payload(now: datetime) -> dict:
+    return {
         "source": "radar",
         "event_start": (now - timedelta(seconds=12)).isoformat(),
         "event_end": now.isoformat(),
@@ -39,13 +38,25 @@ def test_detection_with_internal_fields_passes_server_schema():
         "score": 0.91,
         "method": "rule-v2",
         "reasons": ["머리 숙임 12.0초", "디스펜서 앞·아래 손 머묾 1.4초"],
+        "event_id": "3f1c2b7e-0d4a-4e8b-9c1f-2a6d5e8b7c90",
         # 레이더 내부 칸: 서버로 보낼 때 빠져야 한다
-        "event_id": "radar-1-2",
         "ongoing": True,
     }
-    msg = to_server(envelope("radar.detection", "radar-1", payload, now))
-    assert "event_id" not in msg["payload"]
+
+
+def test_detection_with_internal_fields_passes_server_schema():
+    now = datetime(2026, 11, 5, 13, 36, tzinfo=KST)
+    msg = to_server(envelope("radar.detection", "radar-1", detection_payload(now), now))
+    assert "ongoing" not in msg["payload"]
     parse_sensor_message(msg)
+
+
+def test_radar_sends_event_id():
+    now = datetime(2026, 11, 5, 13, 36, tzinfo=KST)
+    payload = detection_payload(now)
+    msg = to_server(envelope("radar.detection", "radar-1", payload, now))
+    assert msg["payload"].get("event_id") == payload["event_id"]
+    assert parse_sensor_message(msg).payload.event_id == payload["event_id"]
 
 
 def test_status_and_occupancy_pass_server_schema():
