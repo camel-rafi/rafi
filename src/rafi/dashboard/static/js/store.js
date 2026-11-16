@@ -7,6 +7,7 @@
 //   { kind: "ack", id }        확인 처리 중·실패 표시가 바뀜
 //   { kind: "devices" }        장비 상태가 바뀜
 //   { kind: "connection" }     서버 연결 여부가 바뀜
+//   { kind: "tick" }           시간이 흘렀음 (30초마다, 시각에 따라 달라지는 표시용)
 
 (function (RaFi) {
   "use strict";
@@ -16,6 +17,7 @@
 
   const state = {
     connected: false,
+    disconnectedAt: null, // 연결이 끊긴 시각. 화면이 언제 기준인지 알릴 때 쓴다
     loaded: false, // 처음 읽기를 마쳤는지. 그 전에는 "경보 없음" 대신 "-"를 보인다
     roomId: null,
     room: null,
@@ -67,7 +69,12 @@
   function setConnected(connected) {
     if (state.connected === connected) return;
     state.connected = connected;
+    state.disconnectedAt = connected ? null : new Date().toISOString();
     notify({ kind: "connection" });
+  }
+
+  function tick() {
+    notify({ kind: "tick" });
   }
 
   function setAckState(alertId, value) {
@@ -78,6 +85,7 @@
 
   async function ack(alertId) {
     if (state.acking.get(alertId) === "pending") return;
+    if (!state.connected) return; // 끊긴 동안에는 버튼도 막혀 있다
     setAckState(alertId, "pending");
     try {
       putAlert(await api.postAck(alertId)); // 확인된 경보가 들어오면 처리 중 표시도 지운다
@@ -103,6 +111,7 @@
     putDevice,
     setDevices,
     setConnected,
+    tick,
     ack,
     unackedAlerts,
     ackedAlerts,

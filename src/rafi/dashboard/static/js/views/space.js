@@ -119,7 +119,7 @@
     }
 
     function update(change) {
-      if (change.kind === "devices" || change.kind === "connection" || change.kind === "ack") return;
+      if (["devices", "connection", "ack", "tick"].includes(change.kind)) return;
       render();
     }
 

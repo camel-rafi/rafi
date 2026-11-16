@@ -13,7 +13,7 @@
     const view = { historyOpen: false };
 
     function update(change) {
-      if (change.kind === "devices" || change.kind === "connection") return;
+      if (change.kind === "devices" || change.kind === "connection" || change.kind === "tick") return;
       if ((change.kind === "alert" || change.kind === "ack") && change.id !== alertId) return;
 
       const { state } = store;

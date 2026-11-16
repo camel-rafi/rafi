@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="connection" class="banner" hidden>서버 연결이 끊겼습니다. 다시 연결하는 중…</div>
+  <div id="connection" class="banner" role="alert" hidden>서버 연결이 끊겼습니다. 다시 연결하는 중…</div>
 
   <header class="top">
     <div class="brand">
@@ -18,17 +18,21 @@
       <a href="#/" data-route="home">개요</a>
       <a href="#/alerts" data-route="alerts">경보 <span id="nav-unacked" class="count" hidden></span></a>
       <a href="#/space" data-route="space">공간</a>
+      <a href="#/devices" data-route="devices">장비</a>
     </nav>
     <div class="chips">
       <span id="cleaning" class="chip"></span>
       <span id="devices"></span>
+      <button id="sound" type="button" class="chip toggle" aria-pressed="true">알림 소리 켜짐</button>
     </div>
   </header>
+  <div id="device-warning" class="banner warn" role="status" hidden></div>
 
   <main id="view" class="page"></main>
 
-  <!-- 순서대로 읽는다: 도우미 → 서버 → 상태 → 화면 → 화면 이동 → 시작 -->
+  <!-- 순서대로 읽는다: 도우미 → 알림 → 서버 → 상태 → 화면 → 화면 이동 → 시작 -->
   <script defer src="js/dom.js"></script>
+  <script defer src="js/notify.js"></script>
   <script defer src="js/api.js"></script>
   <script defer src="js/store.js"></script>
   <script defer src="js/views/plan.js"></script>
@@ -37,6 +41,7 @@
   <script defer src="js/views/detail.js"></script>
   <script defer src="js/views/room3d.js"></script>
   <script defer src="js/views/space.js"></script>
+  <script defer src="js/views/devices.js"></script>
   <script defer src="js/router.js"></script>
   <script defer src="app.js"></script>
 </body>

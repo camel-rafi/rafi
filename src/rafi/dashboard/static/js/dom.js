@@ -57,6 +57,58 @@
     return time.slice(0, 5);
   }
 
+  const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
+  // 같은 날인지 비교하는 열쇠 (서버가 아니라 이 컴퓨터의 시간대 기준)
+  function dayKey(iso) {
+    const time = new Date(iso);
+    return [time.getFullYear(), time.getMonth() + 1, time.getDate()]
+      .map((n) => String(n).padStart(2, "0"))
+      .join("-");
+  }
+
+  // "오늘 · 11월 16일 (월)", "어제 · 11월 15일 (일)", "11월 14일 (토)"
+  function dayLabel(iso) {
+    const time = new Date(iso);
+    const date = `${time.getMonth() + 1}월 ${time.getDate()}일 (${WEEKDAYS[time.getDay()]})`;
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (isToday(iso)) return `오늘 · ${date}`;
+    if (time.toDateString() === yesterday.toDateString()) return `어제 · ${date}`;
+    return date;
+  }
+
+  // "방금", "3분 전", "2시간 전". 오늘이 아니면 빈 문자열 (날짜가 이미 보이므로)
+  function relative(iso, now = Date.now()) {
+    const minutes = Math.floor((now - new Date(iso).getTime()) / 60000);
+    if (minutes < 1) return "방금";
+    if (minutes < 60) return `${minutes}분 전`;
+    if (isToday(iso)) return `${Math.floor(minutes / 60)}시간 전`;
+    return "";
+  }
+
+  function relativeSuffix(iso) {
+    const text = relative(iso);
+    return text ? ` · ${text}` : "";
+  }
+
+  // 목록의 시각: 시각(오늘이 아니면 날짜까지) + 상대 시각.
+  // 상대 시각은 화면을 다시 그리지 않고 refreshRelative()가 주기적으로 바꾼다
+  function timeLabel(iso, className = "time") {
+    const node = element("span", className, dateTime(iso));
+    node.title = new Date(iso).toLocaleString("ko-KR");
+    const rel = element("span", "rel", relativeSuffix(iso));
+    rel.dataset.time = iso;
+    node.append(rel);
+    return node;
+  }
+
+  function refreshRelative(root = document) {
+    for (const node of root.querySelectorAll(".rel[data-time]")) {
+      node.textContent = relativeSuffix(node.dataset.time);
+    }
+  }
+
   // ---------- 경보 ----------
 
   function where(alert, room) {
@@ -205,6 +257,11 @@
     isToday,
     dateTime,
     hhmm,
+    dayKey,
+    dayLabel,
+    relative,
+    timeLabel,
+    refreshRelative,
     where,
     highestGrade,
     byPriority,

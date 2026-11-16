@@ -27,6 +27,7 @@ ASSETS = [
     "/app.js",
     "/style.css",
     "/js/dom.js",
+    "/js/notify.js",
     "/js/api.js",
     "/js/store.js",
     "/js/router.js",
@@ -36,6 +37,7 @@ ASSETS = [
     "/js/views/detail.js",
     "/js/views/room3d.js",
     "/js/views/space.js",
+    "/js/views/devices.js",
 ]
 
 

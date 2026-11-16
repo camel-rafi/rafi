@@ -25,6 +25,11 @@
     return getJson("/devices");
   }
 
+  // 서버가 받은 원본 메시지, 최근 것부터
+  function getMessages(limit = 100) {
+    return getJson(`/messages?limit=${limit}`);
+  }
+
   async function postAck(alertId) {
     const response = await fetch(`${API}/alerts/${alertId}/ack`, { method: "POST" });
     if (!response.ok) throw new Error(`ack ${alertId}: ${response.status}`);
@@ -43,5 +48,5 @@
     };
   }
 
-  RaFi.api = { getJson, loadSnapshot, getDevices, postAck, connectLive };
+  RaFi.api = { getJson, loadSnapshot, getDevices, getMessages, postAck, connectLive };
 })((window.RaFi = window.RaFi || {}));
