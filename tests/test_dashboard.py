@@ -23,7 +23,25 @@ def test_dashboard_is_served_at_root(client):
     assert "RaFi 관리자" in response.text
 
 
-@pytest.mark.parametrize("path", ["/app.js", "/style.css"])
+ASSETS = [
+    "/app.js",
+    "/style.css",
+    "/js/dom.js",
+    "/js/notify.js",
+    "/js/api.js",
+    "/js/store.js",
+    "/js/router.js",
+    "/js/views/plan.js",
+    "/js/views/home.js",
+    "/js/views/alerts.js",
+    "/js/views/detail.js",
+    "/js/views/room3d.js",
+    "/js/views/space.js",
+    "/js/views/devices.js",
+]
+
+
+@pytest.mark.parametrize("path", ASSETS)
 def test_dashboard_assets_are_served(client, path):
     assert client.get(path).status_code == 200
 
@@ -35,7 +53,7 @@ def test_api_is_not_shadowed_by_dashboard(client):
 
 def test_dashboard_uses_no_external_files(client):
     # 핫스팟에 인터넷이 없을 수 있다
-    for path in ["/", "/app.js", "/style.css"]:
+    for path in ["/", *ASSETS]:
         assert "http://" not in client.get(path).text.replace("http://www.w3.org", "")
         assert "https://" not in client.get(path).text
 

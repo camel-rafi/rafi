@@ -24,7 +24,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "rafi.radar" = ["fonts/*"]
-"rafi.dashboard" = ["static/*"]
+"rafi.dashboard" = ["static/*", "static/js/*", "static/js/views/*"]  # 하위 폴더는 *에 포함되지 않는다
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
