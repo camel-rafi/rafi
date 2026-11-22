@@ -164,6 +164,48 @@ body.offline .ack { pointer-events: none; opacity: 0.5; }
 /* 상대 시각 ("· 3분 전") */
 .rel { color: var(--muted); font-size: 0.85em; }
 
+/* ---------- 진행 중 ---------- */
+
+.ongoing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--l2-text);
+  font-weight: 600;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+.ongoing::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--l2);
+  animation: rafi-pulse 1.2s ease-in-out infinite;
+}
+@keyframes rafi-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(210, 64, 31, 0.45); }
+  50% { box-shadow: 0 0 0 5px rgba(210, 64, 31, 0); }
+}
+
+.live-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-bottom: 20px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  background: var(--l2);
+  color: #fff;
+  text-decoration: none;
+}
+.live-banner .grade { font-weight: 700; }
+.live-banner .ongoing { color: #fff; }
+.live-banner .ongoing::before { background: #fff; }
+.live-banner .where { flex: 1 1 240px; font-size: 1.1rem; font-weight: 700; }
+.live-banner .go { padding: 8px 14px; border-radius: 8px; background: #fff; color: var(--l2-text); font-weight: 700; }
+
 /* ---------- 개요: 오늘 시간 막대 ---------- */
 
 .day-bar { position: relative; height: 44px; margin-top: 12px; }
@@ -383,6 +425,7 @@ button:disabled { cursor: default; opacity: 0.6; }
 .evidence-head .source { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .alert.acked .evidence-head .source { color: inherit; }
 .evidence-head .updates { font-size: 0.8rem; }
+.evidence-head .span { font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 .reasons { margin: 2px 0 0; padding-left: 18px; }
 .evidence-history { margin-top: 6px; }
 .evidence-history summary { cursor: pointer; color: var(--accent); font-size: 0.85rem; padding: 4px 0; }
@@ -406,6 +449,43 @@ button:disabled { cursor: default; opacity: 0.6; }
 .detail-head .actions { margin-top: 6px; }
 .detail-head .ack { min-height: 44px; padding: 0 24px; border: 0; background: var(--l2); color: #fff; font-weight: 700; }
 .detail-head .ack:hover:not(:disabled) { background: #b3321a; }
+
+/* ---------- 경보 상세: 시간 흐름 ---------- */
+
+.timeline { margin-bottom: 20px; }
+.timeline-rows {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 10px 14px;
+  align-items: center;
+  font-size: 0.88rem;
+}
+.timeline-rows + .timeline-rows { margin-top: 6px; }
+.timeline-label { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.timeline-track { position: relative; height: 18px; border-radius: 4px; background: var(--surface-2); }
+.timeline-bar { position: absolute; top: 3px; height: 12px; min-width: 4px; border-radius: 3px; }
+.timeline-bar.radar { background: #e8826a; }
+.timeline-bar.rf { background: #6e9be0; }
+.timeline-bar.live::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  top: -3px;
+  width: 6px;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--l2);
+  animation: rafi-blink 1s ease-in-out infinite;
+}
+@keyframes rafi-blink { 50% { opacity: 0.2; } }
+.timeline-tick { position: absolute; top: 0; width: 1px; height: 18px; background: rgba(22, 25, 29, 0.35); }
+.timeline-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
 
 /* ---------- 공간 보기 (3D) ---------- */
 
@@ -494,3 +574,8 @@ button:disabled { cursor: default; opacity: 0.6; }
 .plan text.room-alert.L2 { fill: var(--l2-text); }
 .plan text.room-alert.L1 { fill: var(--l1-text); }
 .plan .radar { fill: var(--l3-line); }
+
+/* 움직임을 줄이도록 설정한 사용자에게는 깜빡이지 않는다 */
+@media (prefers-reduced-motion: reduce) {
+  .ongoing::before, .timeline-bar.live::after { animation: none; }
+}

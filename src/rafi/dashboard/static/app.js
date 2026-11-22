@@ -27,6 +27,7 @@
 
   const DEVICE_POLL_MS = 10000;
   const TICK_MS = 30000; // "3분 전" 같은 표시와 개요의 "지금" 위치를 옮기는 간격
+  const ONGOING_CHECK_MS = 1000; // 진행 중이던 사건이 끝났는지 확인하는 간격 (바뀔 때만 다시 그린다)
   const KIND = { radar: "레이더", rf: "RF" };
 
   function handleMessage(message) {
@@ -168,4 +169,5 @@
     refreshRelative();
     store.tick();
   }, TICK_MS);
+  setInterval(store.checkOngoing, ONGOING_CHECK_MS);
 })((window.RaFi = window.RaFi || {}));

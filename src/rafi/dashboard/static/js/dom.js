@@ -135,26 +135,91 @@
   }
 
   // 근거 묶기
-  // 레이더는 사건이 이어지는 동안 2초마다 갱신을 보내므로 같은 사건의 근거가 계속 쌓인다.
-  // 레이더 근거는 하나로 묶어 가장 최근 것만 보이고 갱신 횟수를 붙인다.
-  // (서버가 event_id를 처리하면 한 경보에 붙은 레이더 사건을 사건별로 나눌 수 있다)
+  // 레이더는 사건이 이어지는 동안 2초마다 같은 event_id로 갱신을 보내므로 같은 사건의 근거가 계속 쌓인다.
+  // 레이더 근거는 사건(event_id)별로 묶어 가장 최근 것만 보이고, 갱신 횟수와 사건 구간을 붙인다.
+  // 한 경보에 레이더 사건이 여럿일 수 있다: 같은 구역에서 융합 시간창(120초) 안에 다시 일어난 사건은
+  // 서버가 같은 경보에 붙인다. 이때는 "레이더 사건 1, 2"로 나눠 보인다.
+  // event_id가 없는 예전 근거는 구간이 이어지면(SAME_EVENT_GAP_MS 안) 같은 사건으로 본다.
   // RF는 이어지는 전송마다 한 번만 판단하므로 하나하나가 다른 근거다. 묶지 않는다.
-  // 서버는 근거를 받은 순서대로 주므로 뒤에 있을수록 최근 것이다.
+  // 서버는 근거를 받은 순서대로 주므로 뒤에 있을수록 최근 것이다. 묶음은 사건 시작 순서로 보인다.
+  const SAME_EVENT_GAP_MS = 2000; // 레이더 탐지기의 merge_gap_s와 같은 값
+
   function groupEvidence(evidence) {
     const groups = [];
-    let radar = null;
+    const byEventId = new Map();
+    let lastRadar = null;
     for (const e of evidence) {
       if (e.source !== "radar") {
-        groups.push({ source: e.source, latest: e, history: [] });
-      } else if (!radar) {
-        radar = { source: "radar", latest: e, history: [] };
-        groups.push(radar);
-      } else {
-        radar.history.unshift(radar.latest); // 이전 갱신은 최근 것부터
-        radar.latest = e;
+        groups.push(newGroup(e, `${e.source}-${groups.length}`));
+        continue;
       }
+      let group = null;
+      if (e.event_id) group = byEventId.get(e.event_id) || null;
+      else if (continuesWithoutId(lastRadar, e)) group = lastRadar;
+
+      if (!group) {
+        group = newGroup(e, e.event_id || `radar-${groups.length}`);
+        groups.push(group);
+        if (e.event_id) byEventId.set(e.event_id, group);
+      } else {
+        group.history.unshift(group.latest); // 이전 갱신은 최근 것부터
+        group.latest = e;
+        // 시간대 표기가 달라도 맞게 비교하도록 시각으로 바꿔 비교한다
+        if (new Date(e.event_start) < new Date(group.start)) group.start = e.event_start;
+        if (new Date(e.event_end) > new Date(group.end)) group.end = e.event_end;
+      }
+      lastRadar = group;
     }
+    groups.sort((a, b) => new Date(a.start) - new Date(b.start)); // 시작 순서 (같으면 받은 순서)
+    const radar = groups.filter((g) => g.source === "radar");
+    if (radar.length > 1) radar.forEach((g, i) => (g.label = `레이더 사건 ${i + 1}`));
     return groups;
+  }
+
+  function newGroup(e, key) {
+    return {
+      key, // 다시 그려도 같은 묶음을 찾을 수 있는 값 (펼침 상태 유지용)
+      source: e.source,
+      label: SOURCE[e.source],
+      eventId: e.event_id || null,
+      latest: e,
+      history: [],
+      start: e.event_start,
+      end: e.event_end,
+    };
+  }
+
+  function continuesWithoutId(group, e) {
+    if (!group || group.eventId) return false;
+    return new Date(e.event_start) - new Date(group.end) <= SAME_EVENT_GAP_MS;
+  }
+
+  // 46초, 1분 12초, 1시간 3분
+  function duration(ms) {
+    const seconds = Math.max(0, Math.round(ms / 1000));
+    if (seconds < 60) return `${seconds}초`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return seconds % 60 ? `${minutes}분 ${seconds % 60}초` : `${minutes}분`;
+    return minutes % 60 ? `${Math.floor(minutes / 60)}시간 ${minutes % 60}분` : `${Math.floor(minutes / 60)}시간`;
+  }
+
+  // 14:02:11~14:02:57 (46초)
+  function eventSpan(start, end) {
+    return `${clock(start)}~${clock(end)} (${duration(new Date(end) - new Date(start))})`;
+  }
+
+  // 가장 최근에 갱신된 레이더 사건 묶음 (진행 중 표시용)
+  function latestRadarGroup(alert) {
+    const last = [...alert.evidence].reverse().find((e) => e.source === "radar");
+    if (!last) return null;
+    return groupEvidence(alert.evidence).find((group) => group.latest === last) || null;
+  }
+
+  // "진행 중 · 46초째". 길이는 레이더가 보낸 사건 시작·끝으로 재므로 시계 차이와 상관없다
+  function ongoingTag(alert) {
+    const group = latestRadarGroup(alert);
+    const length = group ? ` · ${duration(new Date(group.end) - new Date(group.start))}째` : "";
+    return element("span", "ongoing", `진행 중${length}`);
   }
 
   function reasonList(reasons) {
@@ -164,26 +229,25 @@
   }
 
   // options.history: 이전 갱신을 펼쳐 볼 수 있게 한다 (경보 상세)
-  // options.historyOpen, options.onToggle: 다시 그려도 펼침 상태가 유지되도록 화면이 들고 있는 값
+  // options.openHistory: 펼친 묶음의 key 모음 (Set). 다시 그려도 펼침 상태가 유지되도록 화면이 들고 있는다
   function evidenceList(alert, options = {}) {
     const list = element("ul", "evidence");
     for (const group of groupEvidence(alert.evidence)) {
-      const item = element("li", "evidence-group");
+      const item = element("li", `evidence-group ${group.source}`);
       const head = element("div", "evidence-head");
-      head.append(element("span", "source", `${SOURCE[group.source]} ${group.latest.score.toFixed(2)}`));
+      head.append(element("span", "source", `${group.label} ${group.latest.score.toFixed(2)}`));
       if (group.history.length) head.append(element("span", "updates", `갱신 ${group.history.length + 1}회`));
+      head.append(element("span", "span", eventSpan(group.start, group.end)));
       item.append(head, reasonList(group.latest.reasons));
 
       if (options.history && group.history.length) {
         const details = element("details", "evidence-history");
-        details.open = Boolean(options.historyOpen);
-        details.addEventListener("toggle", () => {
-          if (options.onToggle) options.onToggle(details.open);
-        });
+        details.dataset.key = group.key;
+        details.open = Boolean(options.openHistory && options.openHistory.has(group.key));
         details.append(element("summary", "", `이전 갱신 ${group.history.length}건`));
         const history = element("ol", "history");
         for (const e of group.history) {
-          history.append(element("li", "", [e.score.toFixed(2), ...e.reasons].join(" · ")));
+          history.append(element("li", "", [clock(e.event_end), e.score.toFixed(2), ...e.reasons].join(" · ")));
         }
         details.append(history);
         item.append(details);
@@ -268,6 +332,10 @@
     byRecentUpdate,
     gradeBadge,
     groupEvidence,
+    duration,
+    eventSpan,
+    latestRadarGroup,
+    ongoingTag,
     evidenceList,
     ackControls,
     syncList,

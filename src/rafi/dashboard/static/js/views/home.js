@@ -3,12 +3,14 @@
 (function (RaFi) {
   "use strict";
 
-  const { element, link, clock, isToday, where, gradeBadge, ackControls, syncList, timeLabel, GRADE } = RaFi.dom;
+  const { element, link, clock, isToday, where, gradeBadge, ackControls, syncList, timeLabel, ongoingTag, byPriority, GRADE } = RaFi.dom;
   const { store, plan } = RaFi;
 
   const DAY_MINUTES = 24 * 60;
 
   function mount(root) {
+    // 진행 중인 미확인 L2가 있으면 맨 위에 띠로 알린다
+    const live = element("div", "live-slot");
     const summary = element("section", "summary");
     const unackedValue = summaryCard(summary, "미확인 경보");
     const todayValue = summaryCard(summary, "오늘 경보");
@@ -49,7 +51,28 @@
     main.append(queuePanel, dayPanel);
     const layout = element("div", "layout");
     layout.append(main, planPanel);
-    root.append(summary, layout);
+    root.append(live, summary, layout);
+
+    function drawLive() {
+      const { state } = store;
+      const urgent = store
+        .unackedAlerts()
+        .filter((a) => a.grade === "L2" && store.isOngoing(a.alert_id))
+        .sort(byPriority);
+      if (!urgent.length) {
+        live.replaceChildren();
+        return;
+      }
+      const [first] = urgent;
+      const banner = link(`#/alerts/${first.alert_id}`, "live-banner");
+      banner.append(
+        element("span", "grade", GRADE.L2.label),
+        ongoingTag(first),
+        element("span", "where", where(first, state.room) + (urgent.length > 1 ? ` 외 ${urgent.length - 1}건` : "")),
+        element("span", "go", "자세히 보기 →"),
+      );
+      live.replaceChildren(banner);
+    }
 
     function drawDay() {
       const { state } = store;
@@ -93,6 +116,7 @@
         lastSeenValue.textContent = seen.length ? clock(seen.at(-1)) : "-";
       }
       if (change.kind === "tick") drawDay(); // "지금" 표시를 옮긴다
+      if (change.kind === "ongoing") drawLive();
       if (change.kind === "devices" || change.kind === "connection" || change.kind === "tick") return;
 
       const unacked = store.unackedAlerts();
@@ -106,10 +130,11 @@
 
       syncList(queue, unacked, {
         key: (a) => a.alert_id,
-        sig: (a) => `${a.updated_at}|${state.acking.get(a.alert_id) || ""}`,
+        sig: (a) => `${a.updated_at}|${state.acking.get(a.alert_id) || ""}|${store.isOngoing(a.alert_id)}`,
         build: queueItem,
       });
       empty.hidden = !state.loaded || unacked.length > 0;
+      drawLive();
 
       // 확인 처리 중 표시만 바뀐 경우에는 평면도와 시간 막대를 다시 그리지 않는다
       if (change.kind !== "ack") {
@@ -135,6 +160,7 @@
     const item = element("li", `queue-item ${alert.grade}`);
     const row = link(`#/alerts/${alert.alert_id}`, "queue-link");
     row.append(gradeBadge(alert.grade), element("span", "where", where(alert, state.room)));
+    if (store.isOngoing(alert.alert_id)) row.append(ongoingTag(alert));
     if (alert.in_cleaning_window) row.append(element("span", "tag", "청소 시간대"));
     row.append(timeLabel(alert.started_at));
     item.append(row, ackControls(alert, state.acking.get(alert.alert_id), store.ack));

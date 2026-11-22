@@ -6,7 +6,7 @@
 (function (RaFi) {
   "use strict";
 
-  const { element, link, where, gradeBadge, evidenceList, ackControls, syncList, timeLabel, isToday, dayKey, dayLabel, byPriority, GRADE } = RaFi.dom;
+  const { element, link, where, gradeBadge, evidenceList, ackControls, syncList, timeLabel, ongoingTag, isToday, dayKey, dayLabel, byPriority, GRADE } = RaFi.dom;
   const { store } = RaFi;
 
   const LOAD_LIMIT = 500; // api.js의 처음 읽기와 같은 값
@@ -132,7 +132,9 @@
       syncList(list, withDayHeads(shown), {
         key: (item) => (item.day ? `day-${item.day}` : item.alert_id),
         sig: (item) =>
-          item.day ? `${item.label}|${item.count}` : `${item.updated_at}|${item.status}|${state.acking.get(item.alert_id) || ""}`,
+          item.day
+            ? `${item.label}|${item.count}`
+            : `${item.updated_at}|${item.status}|${state.acking.get(item.alert_id) || ""}|${store.isOngoing(item.alert_id)}`,
         build: (item) => (item.day ? dayHead(item) : alertItem(item)),
       });
 
@@ -234,6 +236,7 @@
 
     const head = element("div", "head");
     head.append(gradeBadge(alert.grade), link(`#/alerts/${alert.alert_id}`, "where", where(alert, state.room)));
+    if (store.isOngoing(alert.alert_id)) head.append(ongoingTag(alert));
     if (alert.in_cleaning_window) head.append(element("span", "tag", "청소 시간대"));
     head.append(timeLabel(alert.started_at));
 
