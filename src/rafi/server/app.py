@@ -4,6 +4,7 @@
 """
 
 import asyncio
+import mimetypes
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
@@ -170,6 +171,12 @@ def create_app(
         limit: Annotated[int, Query(ge=1, le=500)] = 50,
     ) -> list[dict]:
         return request.app.state.storage.list_messages(limit)
+
+    # Windows는 MIME 타입을 레지스트리에서 읽어 .woff2가 빠져 있을 수 있다.
+    # 그러면 글꼴이 application/octet-stream으로 나간다 (브라우저가 받아주기는 한다).
+    # 올바른 타입으로 나가도록 직접 등록한다. (.js도 text/plain으로 나갈 수 있는데,
+    # 그쪽은 index.html이 모듈 script를 쓰지 않는 방식으로 이미 피하고 있다)
+    mimetypes.add_type("font/woff2", ".woff2")
 
     # API 경로를 모두 등록한 뒤에 둔다. 나머지 경로는 대시보드 파일로 응답한다
     app.mount("/", StaticFiles(directory=DASHBOARD_DIR, html=True), name="dashboard")

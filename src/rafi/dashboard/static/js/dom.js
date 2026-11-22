@@ -7,10 +7,16 @@
 
   const SVG_NS = "http://www.w3.org/2000/svg";
 
+  // 등급은 서버가 보낸 "L1"·"L2"·"L3" 값 그대로 쓰고, 보이는 문구만 여기서 정한다.
+  //   action  관리자가 할 일. 화면에서 가장 먼저 읽혀야 하는 말이다.
+  //   source  그 판단의 근거가 된 장비. 등급 차이가 결국 이것이다.
+  //   glyph   색과 별개의 두 번째 단서 (흑백·적록색약에서도 구분되도록)
+  //   code    기록·보고용 코드. 화면에서는 보조로만 보인다.
+  // L1·L2·L3라는 숫자는 심각도 순서와 거꾸로여서(L2 > L1 > L3) 주 문구로 쓰지 않는다.
   const GRADE = {
-    L2: { label: "L2 우선 확인", order: 0 },
-    L1: { label: "L1 확인 요청", order: 1 },
-    L3: { label: "L3 알림", order: 2 },
+    L2: { code: "L2", glyph: "▲", action: "지금 확인", source: "레이더+RF", order: 0 },
+    L1: { code: "L1", glyph: "◆", action: "확인 필요", source: "레이더만", order: 1 },
+    L3: { code: "L3", glyph: "●", action: "참고", source: "RF만", order: 2 },
   };
   const SOURCE = { radar: "레이더", rf: "RF" };
 
@@ -130,8 +136,21 @@
     return b.updated_at.localeCompare(a.updated_at);
   }
 
-  function gradeBadge(grade) {
-    return element("span", `badge ${grade}`, GRADE[grade].label);
+  // 제목·aria-label·SVG 텍스트처럼 글자만 필요한 곳에서 쓰는 문구
+  // options.source: 근거 장비까지 붙인다 ("지금 확인 · 레이더+RF")
+  function gradeText(grade, options = {}) {
+    const { action, source } = GRADE[grade];
+    return options.source ? `${action} · ${source}` : action;
+  }
+
+  // 배지: 글립 + 행동 문구 + 코드. 글립은 aria-hidden으로 두어
+  // 읽어 주는 기기에는 "▲"가 아니라 문구만 전달된다
+  function gradeBadge(grade, options = {}) {
+    const box = element("span", `badge ${grade}`);
+    const glyph = element("span", "glyph", GRADE[grade].glyph);
+    glyph.setAttribute("aria-hidden", "true");
+    box.append(glyph, gradeText(grade, options), element("span", "code", GRADE[grade].code));
+    return box;
   }
 
   // 근거 묶기
@@ -330,6 +349,7 @@
     highestGrade,
     byPriority,
     byRecentUpdate,
+    gradeText,
     gradeBadge,
     groupEvidence,
     duration,

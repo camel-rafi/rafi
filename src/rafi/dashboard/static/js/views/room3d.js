@@ -7,7 +7,7 @@
 (function (RaFi) {
   "use strict";
 
-  const { svgElement } = RaFi.dom;
+  const { svgElement, GRADE } = RaFi.dom;
 
   const VIEW_W = 760;
   const VIEW_H = 560;
@@ -118,7 +118,11 @@
         .filter(([zoneId]) => zoneId !== "stall" && (zoneId === selected || grades.has(zoneId)))
         .map(([zoneId, zone]) => ({ zoneId, zone }));
       for (const { zoneId, zone } of namedZones) {
-        nodes.push(label(project(mid(zone.x_cm), mid(zone.y_cm), zone.z_cm[1]), zone.name, `zone-name ${grades.get(zoneId) || ""}`));
+        // 이름 앞에 등급 글립을 붙인다. 3D 면은 보는 각도에 따라 색이 달라 보이므로
+        // 색 외의 단서가 평면도보다 더 필요하다 (배지·평면도와 같은 기호를 쓴다)
+        const grade = grades.get(zoneId) || "";
+        const name = grade ? `${GRADE[grade].glyph} ${zone.name}` : zone.name;
+        nodes.push(label(project(mid(zone.x_cm), mid(zone.y_cm), zone.z_cm[1]), name, `zone-name ${grade}`));
       }
       if (layers.fixtures) {
         for (const fixture of Object.values(room.fixtures)) {

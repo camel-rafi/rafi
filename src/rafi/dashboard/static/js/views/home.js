@@ -3,7 +3,7 @@
 (function (RaFi) {
   "use strict";
 
-  const { element, link, clock, isToday, where, gradeBadge, ackControls, syncList, timeLabel, ongoingTag, byPriority, GRADE } = RaFi.dom;
+  const { element, link, clock, isToday, where, gradeBadge, gradeText, ackControls, syncList, timeLabel, ongoingTag, byPriority } = RaFi.dom;
   const { store, plan } = RaFi;
 
   const DAY_MINUTES = 24 * 60;
@@ -45,7 +45,12 @@
     const planHead = element("div", "panel-head");
     planHead.append(element("h2", "", "평면도"), link("#/space", "more", "3D로 보기 →"));
     const svg = plan.createSvg("칸 평면도");
-    planPanel.append(planHead, svg, element("p", "muted small", "위에서 본 모습 · 위쪽이 뒷벽, 아래쪽이 출입문"));
+    planPanel.append(
+      planHead,
+      svg,
+      plan.legend(),
+      element("p", "muted small", "위에서 본 모습 · 위쪽이 뒷벽, 아래쪽이 출입문"),
+    );
 
     const main = element("div", "stack");
     main.append(queuePanel, dayPanel);
@@ -66,7 +71,7 @@
       const [first] = urgent;
       const banner = link(`#/alerts/${first.alert_id}`, "live-banner");
       banner.append(
-        element("span", "grade", GRADE.L2.label),
+        element("span", "grade", gradeText("L2", { source: true })),
         ongoingTag(first),
         element("span", "where", where(first, state.room) + (urgent.length > 1 ? ` 외 ${urgent.length - 1}건` : "")),
         element("span", "go", "자세히 보기 →"),
@@ -95,7 +100,7 @@
       // 미확인을 나중에 그려 겹칠 때 위에 오게 한다
       const ordered = [...today].sort((a, b) => (a.status === b.status ? 0 : a.status === "unacked" ? 1 : -1));
       for (const alert of ordered) {
-        const label = `${GRADE[alert.grade].label} · ${where(alert, state.room)} · ${clock(alert.started_at)}`;
+        const label = `${gradeText(alert.grade)} · ${where(alert, state.room)} · ${clock(alert.started_at)}`;
         const dot = link(`#/alerts/${alert.alert_id}`, `day-dot ${alert.grade} ${alert.status}`);
         dot.style.left = percent(minutesOfDate(new Date(alert.started_at)));
         dot.title = label;

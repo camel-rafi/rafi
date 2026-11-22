@@ -108,7 +108,8 @@
       const name = element("span", "name", zone.name);
       const meta = element("span", "meta", `높이 ${zone.z_cm[0]}–${zone.z_cm[1]} cm`);
       button.append(name, meta);
-      if (count) button.append(element("span", `badge ${grade}`, `${GRADE[grade].label.slice(0, 2)} ${count}건`));
+      // 좁은 배지라 행동 문구 대신 코드를 쓴다 (목록 옆 숫자 요약용)
+      if (count) button.append(element("span", `badge ${grade}`, `${GRADE[grade].code} ${count}건`));
       button.addEventListener("click", () => {
         selected = isSelected ? null : zone.id;
         history.replaceState(null, "", selected ? `#/space/${selected}` : "#/space");

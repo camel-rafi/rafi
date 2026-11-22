@@ -1,33 +1,110 @@
 /* RaFi 관리자 대시보드
-   외부 글꼴·파일을 쓰지 않는다 (핫스팟에 인터넷이 없을 수 있다) */
+   외부 글꼴·파일을 쓰지 않는다 (핫스팟에 인터넷이 없을 수 있다).
+   글꼴은 fonts/에서 직접 제공한다 — CDN을 쓰지 않는다.
+
+   시각 시스템: 접근성 우선 + Swiss (ui-ux-pro-max / Government·Public Service 행)
+     · 본문 16px, 글자 대비 7:1 이상, 포커스 링 3px, 누르는 것 44px 이상
+     · 그림자 없음, 둥근 모서리 없음 — 구조는 선과 여백으로만 만든다
+     · 등급은 색 + 모양 + 글자로 알린다 (색만으로 알리지 않는다)
+   다크는 같은 토큰 이름에 값만 바꿔 파생한다 (파일 끝). */
+
+@font-face {
+  font-family: "Pretendard";
+  src: url("fonts/Pretendard-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Pretendard";
+  src: url("fonts/Pretendard-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
 
 :root {
-  --bg: #f4f5f7;
+  color-scheme: light;
+
+  /* 바탕과 면 */
+  --bg: #e7ebf1;
   --surface: #ffffff;
-  --surface-2: #f7f8fa;
-  --text: #16191d;
-  --muted: #5b6470;
-  --line: #e3e6ea;
-  --line-strong: #c9ced5;
-  --fixture: #eceef1;
-  --accent: #1f5fc4;
-  --ok-bg: #e2f3e7;
-  --ok-text: #1d6b36;
-  --bad-bg: #fde7e2;
-  --bad-text: #a8301a;
-  --l2: #d2401f;
-  --l2-bg: #fff4f1;
-  --l2-text: #a8301a;
-  --l2-line: #d2401f;
-  --l1-bg: #fcefc9;
-  --l1-text: #6e4700;
-  --l1-line: #c99a2e;
-  --l3-bg: #e0ebfc;
-  --l3-text: #1a4589;
-  --l3-line: #5f8fd8;
+  --surface-2: #f3f5f9;
+  --fixture: #e9edf2;
+
+  /* 글자 — 흰 면 기준 18.5:1 / 8.7:1 */
+  --text: #0f1419;
+  --muted: #414c5a;
+
+  /* 선: line은 구조용 1px, line-strong은 테두리용, rule-strong은 2px 강조 */
+  --line: #dde2e9;
+  --line-strong: #8b96a4;
+  --rule-strong: #0f1419;
+
+  /* 링크·포커스 전용. 상태색과 섞지 않는다 */
+  --accent: #11407f;
+  --focus: #11407f;
+
+  /* 모서리: Swiss 방향이라 0. 바꾸려면 이 값만 올린다 */
+  --radius: 0px;
+
+  /* 상태 — 모두 흰 면에서 7:1 이상 */
+  --ok-bg: #e6f2ea;
+  --ok-text: #155c2c;
+  --bad-bg: #fbeeeb;
+  --bad-text: #9e1e0a;
+
+  /* 등급. l2는 채움 역할, l2-text는 글자 역할, l2-line은 선 역할 */
+  --l2: #a8200b;
+  --l2-bg: #fbeeeb;
+  --l2-text: #9e1e0a;
+  --l2-line: #a8200b;
+  --l1-bg: #faf2da;
+  --l1-text: #6b4a00;
+  --l1-line: #6b4a00;
+  --l3-bg: #e8eef9;
+  --l3-text: #11407f;
+  --l3-line: #11407f;
+
+  /* 채운 l2 위에 올라가는 글자 (배지·확인 버튼) */
+  --on-l2: #ffffff;
+  --l2-hover: #8a1b09;
+
+  /* 평면도·시간 흐름 */
+  --plan-l2-fill: #f4cdc6;
+  --day-clean: #c8d0da;
+  --bar-radar: #a8200b;
+  --bar-rf: #11407f;
+  --tick: rgba(255, 255, 255, 0.8);
+  --device-bad-line: #a8200b;
+  --nav-fg: #414c5a;
+
+  /* 3D 스테이지. 뷰포트는 두 테마 모두 어둡게 둔다 —
+     지도·영상 화면처럼 의도된 영역이고, 구역 색이 가장 잘 읽힌다 */
+  --stage-bg: #12161b;
+  --stage-line: #262c34;
+  --stage-btn-line: #39414b;
+  --stage-text: #e8eaed;
+  --stage-text-dim: #b5bdc7;
+  --stage-floor: #262c34;
+  --stage-wall: #3a424c;
+  --stage-edge: #4a535e;
+  --stage-fixture: #5a6470;
+  --stage-fixture-line: #7a8592;
+  --stage-fixture-text: #a3acb7;
+  --stage-label: #c9d2dd;
+  --stage-zone: #6ea8fe;
+  --stage-device: #8ab8ff;
+  --stage-l2: #ff6b4a;
+  --stage-l2-soft: #ff8c6e;
+  --stage-l2-text: #ffb4a3;
+  --stage-l1: #f2b33d;
+  --stage-l1-text: #f7d58a;
+  --stage-selected: #ffffff;
 }
 
 * { box-sizing: border-box; }
+
+/* 포커스 링은 지우지 않는다. 키보드로 닿는 모든 요소에서 보여야 한다 */
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
 /* display를 준 요소도 hidden이면 반드시 숨긴다 */
 [hidden] { display: none !important; }
@@ -36,8 +113,8 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
-  font-size: 15px;
+  font-family: "Pretendard", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+  font-size: 16px;
   line-height: 1.5;
 }
 
@@ -87,19 +164,19 @@ body.offline .ack { pointer-events: none; opacity: 0.5; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 14px;
-  border-radius: 8px;
-  color: #3d4550;
+  border-radius: var(--radius);
+  color: var(--nav-fg);
   text-decoration: none;
 }
 .nav a:hover { background: var(--fixture); }
-.nav a[aria-current="page"] { background: var(--text); color: #fff; font-weight: 600; }
+.nav a[aria-current="page"] { background: var(--text); color: var(--surface); font-weight: 600; }
 .count {
   padding: 0 7px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   background: var(--l2);
-  color: #fff;
+  color: var(--on-l2);
   font-size: 0.8rem;
   font-weight: 700;
 }
@@ -112,7 +189,7 @@ body.offline .ack { pointer-events: none; opacity: 0.5; }
   align-items: center;
   gap: 6px;
   padding: 5px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   background: var(--fixture);
   font-size: 0.88rem;
   white-space: nowrap;
@@ -146,7 +223,7 @@ body.offline .ack { pointer-events: none; opacity: 0.5; }
 .card, .panel {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius);
   padding: 16px 20px;
 }
 .panel-head {
@@ -184,8 +261,8 @@ body.offline .ack { pointer-events: none; opacity: 0.5; }
   animation: rafi-pulse 1.2s ease-in-out infinite;
 }
 @keyframes rafi-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(210, 64, 31, 0.45); }
-  50% { box-shadow: 0 0 0 5px rgba(210, 64, 31, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--l2) 45%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--l2) 0%, transparent); }
 }
 
 .live-banner {
@@ -195,39 +272,41 @@ body.offline .ack { pointer-events: none; opacity: 0.5; }
   gap: 10px 16px;
   margin-bottom: 20px;
   padding: 14px 20px;
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: var(--l2);
-  color: #fff;
+  color: var(--on-l2);
   text-decoration: none;
 }
 .live-banner .grade { font-weight: 700; }
-.live-banner .ongoing { color: #fff; }
-.live-banner .ongoing::before { background: #fff; }
+.live-banner .ongoing { color: var(--on-l2); }
+.live-banner .ongoing::before { background: var(--on-l2); }
 .live-banner .where { flex: 1 1 240px; font-size: 1.1rem; font-weight: 700; }
-.live-banner .go { padding: 8px 14px; border-radius: 8px; background: #fff; color: var(--l2-text); font-weight: 700; }
+.live-banner .go { padding: 8px 14px; border-radius: var(--radius); background: var(--surface); color: var(--l2-text); font-weight: 700; }
 
 /* ---------- 개요: 오늘 시간 막대 ---------- */
 
 .day-bar { position: relative; height: 44px; margin-top: 12px; }
-.day-track { position: absolute; left: 0; right: 0; top: 18px; height: 8px; border-radius: 4px; background: var(--fixture); }
-.day-cleaning { position: absolute; top: 12px; height: 20px; border-radius: 3px; background: #d9dee5; }
+.day-track { position: absolute; left: 0; right: 0; top: 18px; height: 8px; border-radius: var(--radius); background: var(--fixture); }
+.day-cleaning { position: absolute; top: 12px; height: 20px; border-radius: var(--radius); background: var(--day-clean); }
 .day-dot {
   position: absolute;
   top: 14px;
   width: 16px;
   height: 16px;
   margin-left: -8px;
-  border-radius: 50%;
   border: 3px solid;
   background: var(--surface);
 }
-.day-dot.L2 { border-color: var(--l2); }
-.day-dot.L1 { border-color: var(--l1-line); }
-.day-dot.L3 { border-color: var(--l3-line); }
+/* 등급을 모양으로도 구분한다: L2 동그라미 / L1 사각형 / L3 마름모.
+   rotate 속성을 쓰면 아래 :hover의 transform: scale()과 겹쳐도 둘 다 적용된다 */
+.day-dot.L2 { border-color: var(--l2); border-radius: 50%; }
+.day-dot.L1 { border-color: var(--l1-line); border-radius: 0; }
+.day-dot.L3 { border-color: var(--l3-line); border-radius: 0; rotate: 45deg; }
 .day-dot.unacked.L2 { background: var(--l2); }
 .day-dot.unacked.L1 { background: var(--l1-line); }
 .day-dot.unacked.L3 { background: var(--l3-line); }
-.day-dot:hover, .day-dot:focus-visible { transform: scale(1.3); outline: none; }
+/* 확대만으로는 포커스를 알릴 수 없다. 위 전역 링을 그대로 쓴다 */
+.day-dot:hover, .day-dot:focus-visible { transform: scale(1.3); }
 .day-now { position: absolute; top: 2px; width: 2px; height: 40px; margin-left: -1px; background: var(--text); }
 .day-axis {
   display: flex;
@@ -245,13 +324,13 @@ body.offline .ack { pointer-events: none; opacity: 0.5; }
 .field-name, .field legend { font-size: 0.8rem; font-weight: 600; color: var(--muted); padding: 0; }
 .field.grades { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
 .field.grades legend { width: 100%; margin-bottom: 2px; }
-.field-check { min-height: 42px; }
+.field-check { min-height: 44px; }
 select {
   font: inherit;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 10px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface);
   color: var(--text);
 }
@@ -275,7 +354,7 @@ select {
 }
 .device-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .device-top h2 { margin: 0; }
-.device.bad { border-color: #f0b9ad; }
+.device.bad { border-color: var(--device-bad-line); }
 .facts { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 6px 12px; margin: 12px 0 0; font-size: 0.92rem; }
 .facts dt { color: var(--muted); }
 .facts dd { margin: 0; overflow-wrap: anywhere; }
@@ -293,13 +372,13 @@ select {
 .message-row .time { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .message-row .type { font-size: 0.85rem; }
 .message-row .summary { color: var(--muted); overflow-wrap: anywhere; }
-.message-row button { min-height: 32px; padding: 0 10px; font-size: 0.85rem; }
+.message-row button { min-height: 44px; padding: 0 12px; font-size: 0.9rem; }
 .json {
   margin: 0 20px 12px;
   padding: 12px 14px;
   max-height: 320px;
   overflow: auto;
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface-2);
   font-size: 0.82rem;
 }
@@ -332,22 +411,35 @@ select {
   display: inline-flex;
   gap: 4px;
   padding: 3px;
-  border-radius: 9px;
+  border-radius: var(--radius);
   background: var(--fixture);
 }
-.segmented button { border: 0; background: transparent; min-height: 36px; }
-.segmented button[aria-pressed="true"] { background: var(--surface); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+.segmented button { border: 0; background: transparent; min-height: 44px; }
+.segmented button[aria-pressed="true"] { background: var(--surface); font-weight: 600; box-shadow: inset 0 0 0 1px var(--line-strong); }
 
 /* ---------- 등급·표시 ---------- */
 
-.badge { padding: 2px 9px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; white-space: nowrap; }
-.badge.L2 { background: var(--l2); color: #fff; }
+/* 배지는 행동 문구가 주인공이다. 글립은 색 말고 모양으로 등급을 알리고,
+   코드(L1·L2·L3)는 기록을 맞춰 볼 때만 필요하므로 작고 흐리게 둔다 */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  font-weight: 700;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.badge .glyph { font-size: 0.8em; line-height: 1; }
+.badge .code { font-size: 0.78em; font-weight: 700; opacity: 0.75; }
+.badge.L2 { background: var(--l2); color: var(--on-l2); }
 .badge.L1 { background: var(--l1-bg); color: var(--l1-text); }
 .badge.L3 { background: var(--l3-bg); color: var(--l3-text); }
 
 .tag {
   padding: 1px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: var(--fixture);
   font-size: 0.8rem;
   color: var(--muted);
@@ -360,10 +452,10 @@ select {
 
 button {
   font: inherit;
-  min-height: 36px;
+  min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
@@ -393,7 +485,7 @@ button:disabled { cursor: default; opacity: 0.6; }
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  min-height: 40px;
+  min-height: 44px;
   color: var(--text);
   text-decoration: none;
 }
@@ -407,7 +499,7 @@ button:disabled { cursor: default; opacity: 0.6; }
 
 .alert {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius);
   padding: 12px 14px;
   display: grid;
   gap: 6px;
@@ -447,8 +539,8 @@ button:disabled { cursor: default; opacity: 0.6; }
 .detail-head.L3 { box-shadow: inset 4px 0 0 var(--l3-line); }
 .detail-head .head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .detail-head .actions { margin-top: 6px; }
-.detail-head .ack { min-height: 44px; padding: 0 24px; border: 0; background: var(--l2); color: #fff; font-weight: 700; }
-.detail-head .ack:hover:not(:disabled) { background: #b3321a; }
+.detail-head .ack { min-height: 44px; padding: 0 24px; border: 0; background: var(--l2); color: var(--on-l2); font-weight: 700; }
+.detail-head .ack:hover:not(:disabled) { background: var(--l2-hover); }
 
 /* ---------- 경보 상세: 시간 흐름 ---------- */
 
@@ -462,10 +554,10 @@ button:disabled { cursor: default; opacity: 0.6; }
 }
 .timeline-rows + .timeline-rows { margin-top: 6px; }
 .timeline-label { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.timeline-track { position: relative; height: 18px; border-radius: 4px; background: var(--surface-2); }
-.timeline-bar { position: absolute; top: 3px; height: 12px; min-width: 4px; border-radius: 3px; }
-.timeline-bar.radar { background: #e8826a; }
-.timeline-bar.rf { background: #6e9be0; }
+.timeline-track { position: relative; height: 18px; border-radius: var(--radius); background: var(--surface-2); }
+.timeline-bar { position: absolute; top: 3px; height: 12px; min-width: 4px; border-radius: var(--radius); }
+.timeline-bar.radar { background: var(--bar-radar); }
+.timeline-bar.rf { background: var(--bar-rf); }
 .timeline-bar.live::after {
   content: "";
   position: absolute;
@@ -473,12 +565,12 @@ button:disabled { cursor: default; opacity: 0.6; }
   top: -3px;
   width: 6px;
   height: 18px;
-  border-radius: 3px;
+  border-radius: var(--radius);
   background: var(--l2);
   animation: rafi-blink 1s ease-in-out infinite;
 }
 @keyframes rafi-blink { 50% { opacity: 0.2; } }
-.timeline-tick { position: absolute; top: 0; width: 1px; height: 18px; background: rgba(22, 25, 29, 0.35); }
+.timeline-tick { position: absolute; top: 0; width: 1px; height: 18px; background: var(--tick); }
 .timeline-axis {
   display: flex;
   justify-content: space-between;
@@ -489,52 +581,53 @@ button:disabled { cursor: default; opacity: 0.6; }
 
 /* ---------- 공간 보기 (3D) ---------- */
 
-.stage { padding: 0; overflow: hidden; background: #12161b; border-color: #262c34; color: #e8eaed; }
+.stage { padding: 0; overflow: hidden; background: var(--stage-bg); border-color: var(--stage-line); color: var(--stage-text); }
 .stage-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   padding: 10px 12px;
-  border-bottom: 1px solid #262c34;
+  border-bottom: 1px solid var(--stage-line);
 }
-.stage-bar .hint { flex: 1 1 auto; font-size: 0.85rem; color: #b5bdc7; }
-.stage-bar button { border-color: #39414b; background: transparent; color: #e8eaed; font-size: 0.88rem; }
-.stage-bar button:hover:not(:disabled) { background: #262c34; }
+.stage-bar .hint { flex: 1 1 auto; font-size: 0.85rem; color: var(--stage-text-dim); }
+.stage-bar button { border-color: var(--stage-btn-line); background: transparent; color: var(--stage-text); font-size: 0.88rem; }
+.stage-bar button:hover:not(:disabled) { background: var(--stage-line); }
 .stage-bar button.icon { width: 36px; padding: 0; }
-.stage-note { padding: 0 14px 12px; color: #b5bdc7; }
+.stage-note { padding: 0 14px 12px; color: var(--stage-text-dim); }
 
 .room3d { display: block; width: 100%; height: auto; cursor: grab; touch-action: none; }
 .room3d:active { cursor: grabbing; }
-.room3d:focus-visible { outline: 2px solid #8ab8ff; outline-offset: -2px; }
+.room3d:focus-visible { outline: 3px solid var(--stage-device); outline-offset: -3px; }
 .room3d .face { stroke-width: 1; stroke-linejoin: round; }
-.room3d .floor { fill: #262c34; stroke: #4a535e; }
-.room3d .wall { fill: #3a424c; fill-opacity: 0.2; stroke: #4a535e; }
+.room3d .floor { fill: var(--stage-floor); stroke: var(--stage-edge); }
+.room3d .wall { fill: var(--stage-wall); fill-opacity: 0.2; stroke: var(--stage-edge); }
 .room3d .wall.side { fill-opacity: 0.12; }
-.room3d .wall.L2 { stroke: #ff6b4a; stroke-width: 2; }
-.room3d .wall.L1 { stroke: #f2b33d; stroke-width: 2; }
-.room3d .ceiling { fill: none; stroke: #4a535e; stroke-dasharray: 3 5; }
-.room3d .fixture { fill: #5a6470; fill-opacity: 0.55; stroke: #7a8592; }
-.room3d .zone { fill: #6ea8fe; fill-opacity: 0.04; stroke: #6ea8fe; stroke-opacity: 0.55; stroke-dasharray: 3 4; }
-.room3d .zone.L2 { fill: #ff6b4a; fill-opacity: 0.18; stroke: #ff8c6e; stroke-opacity: 1; stroke-dasharray: none; }
-.room3d .zone.L1 { fill: #f2b33d; fill-opacity: 0.18; stroke: #f2b33d; stroke-opacity: 1; stroke-dasharray: none; }
-.room3d .zone.L3 { fill: #6ea8fe; fill-opacity: 0.18; stroke: #6ea8fe; stroke-opacity: 1; stroke-dasharray: none; }
-.room3d .zone.selected { stroke: #ffffff; stroke-width: 1.6; stroke-opacity: 1; stroke-dasharray: none; fill-opacity: 0.22; }
+.room3d .wall.L2 { stroke: var(--stage-l2); stroke-width: 2; }
+.room3d .wall.L1 { stroke: var(--stage-l1); stroke-width: 2; }
+.room3d .ceiling { fill: none; stroke: var(--stage-edge); stroke-dasharray: 3 5; }
+.room3d .fixture { fill: var(--stage-fixture); fill-opacity: 0.55; stroke: var(--stage-fixture-line); }
+.room3d .zone { fill: var(--stage-zone); fill-opacity: 0.04; stroke: var(--stage-zone); stroke-opacity: 0.55; stroke-dasharray: 3 4; }
+/* 3D 면은 보는 각도에 따라 색이 달라 보인다. 선종과 굵기로도 구분한다 */
+.room3d .zone.L2 { fill: var(--stage-l2); fill-opacity: 0.18; stroke: var(--stage-l2-soft); stroke-opacity: 1; stroke-dasharray: none; stroke-width: 2.2; }
+.room3d .zone.L1 { fill: var(--stage-l1); fill-opacity: 0.18; stroke: var(--stage-l1); stroke-opacity: 1; stroke-dasharray: 6 3; stroke-width: 1.6; }
+.room3d .zone.L3 { fill: var(--stage-zone); fill-opacity: 0.18; stroke: var(--stage-zone); stroke-opacity: 1; stroke-dasharray: 1.5 2; stroke-width: 1.4; }
+.room3d .zone.selected { stroke: var(--stage-selected); stroke-width: 1.6; stroke-opacity: 1; stroke-dasharray: none; fill-opacity: 0.22; }
 .room3d text {
   font-size: 13px;
   text-anchor: middle;
-  fill: #c9d2dd;
+  fill: var(--stage-label);
   paint-order: stroke;
-  stroke: #12161b;
+  stroke: var(--stage-bg);
   stroke-width: 3px;
   stroke-linejoin: round;
 }
-.room3d text.fixture-name { font-size: 12px; fill: #a3acb7; }
-.room3d text.zone-name { font-weight: 700; fill: #ffffff; }
-.room3d text.zone-name.L2 { fill: #ffb4a3; }
-.room3d text.zone-name.L1 { fill: #f7d58a; }
-.room3d text.device-name { fill: #8ab8ff; }
-.room3d .radar { fill: #8ab8ff; }
+.room3d text.fixture-name { font-size: 12px; fill: var(--stage-fixture-text); }
+.room3d text.zone-name { font-weight: 700; fill: var(--stage-selected); }
+.room3d text.zone-name.L2 { fill: var(--stage-l2-text); }
+.room3d text.zone-name.L1 { fill: var(--stage-l1-text); }
+.room3d text.device-name { fill: var(--stage-device); }
+.room3d .radar { fill: var(--stage-device); }
 
 .zone-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
 .zone-button {
@@ -553,7 +646,7 @@ button:disabled { cursor: default; opacity: 0.6; }
 
 .layers { margin: 16px 0 0; padding: 0; border: 0; }
 .layers legend { font-weight: 600; margin-bottom: 4px; }
-.check { display: flex; align-items: center; gap: 10px; min-height: 40px; }
+.check { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .check input { width: 18px; height: 18px; }
 
 /* ---------- 평면도 ---------- */
@@ -564,18 +657,156 @@ button:disabled { cursor: default; opacity: 0.6; }
 .plan .room.L1 { stroke: var(--l1-line); stroke-width: 2.5; }
 .plan .fixture { fill: var(--fixture); stroke: var(--line); stroke-width: 0.4; }
 .plan .fixture-line { stroke: var(--muted); stroke-width: 1.2; }
+/* 등급은 색만으로 알리지 않는다. 세 단서를 겹친다:
+     1) 채움 무늬  — L2 교차 해치 / L1 사선 / L3 드문 점 (plan.js의 PATTERNS)
+     2) 테두리 선종 — L2 굵은 실선 / L1 파선 / L3 점선 / 조용함 얇은 점선
+     3) 이름 앞 글립 — ▲ ◆ ● (배지·3D와 같은 기호)
+   흑백으로 인쇄해도, 적록색약으로 봐도 구분된다 */
 .plan .zone { fill: none; stroke: var(--muted); stroke-width: 0.4; stroke-dasharray: 1.5 1.5; }
-.plan .zone.L2 { fill: #fbd5cb; stroke: var(--l2-line); stroke-width: 1; stroke-dasharray: none; fill-opacity: 0.85; }
-.plan .zone.L1 { fill: var(--l1-bg); stroke: var(--l1-line); stroke-width: 1; stroke-dasharray: none; fill-opacity: 0.85; }
-.plan .zone.L3 { fill: var(--l3-bg); stroke: var(--l3-line); stroke-width: 1; stroke-dasharray: none; fill-opacity: 0.85; }
+.plan .zone.L2 { fill: url(#rafi-plan-L2); stroke: var(--l2-line); stroke-width: 1.4; stroke-dasharray: none; }
+.plan .zone.L1 { fill: url(#rafi-plan-L1); stroke: var(--l1-line); stroke-width: 1; stroke-dasharray: 3 1.5; }
+.plan .zone.L3 { fill: url(#rafi-plan-L3); stroke: var(--l3-line); stroke-width: 1; stroke-dasharray: 0.8 1.2; }
+
+/* 무늬 조각의 색. 테마가 바뀌면 같이 바뀐다 */
+.plan .hatch-bg.L2 { fill: var(--l2-bg); }
+.plan .hatch-bg.L1 { fill: var(--l1-bg); }
+.plan .hatch-bg.L3 { fill: var(--l3-bg); }
+.plan .hatch-line { fill: none; stroke-width: 0.4; stroke-linecap: round; }
+.plan .hatch-line.L2 { stroke: var(--l2-line); stroke-opacity: 0.55; }
+.plan .hatch-line.L1 { stroke: var(--l1-line); stroke-opacity: 0.65; }
+.plan .hatch-line.L3 { stroke: var(--l3-line); stroke-width: 0.9; }
 .plan text { font-size: 4px; fill: var(--muted); }
-.plan text.zone-label { fill: var(--text); font-weight: 600; }
+.plan text.zone-label {
+  fill: var(--text);
+  font-weight: 700;
+  /* 무늬 위에 올라가므로 글자 뒤에 바탕색 테두리를 둬서 읽히게 한다 */
+  /* 단위는 화면 px이 아니라 viewBox의 cm다. 글자가 4cm이므로 테두리는 0.5cm면 충분하다 */
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 0.5px;
+  stroke-linejoin: round;
+}
 .plan text.room-alert { font-size: 5px; font-weight: 700; }
 .plan text.room-alert.L2 { fill: var(--l2-text); }
 .plan text.room-alert.L1 { fill: var(--l1-text); }
 .plan .radar { fill: var(--l3-line); }
 
+/* 평면도 범례 — 무늬가 무엇을 뜻하는지 적는다. 없으면 무늬는 장식으로 읽힌다 */
+
+.plan-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.plan-legend-item { display: inline-flex; align-items: center; gap: 7px; }
+.legend-swatch { width: 26px; height: 15px; flex: none; }
+
 /* 움직임을 줄이도록 설정한 사용자에게는 깜빡이지 않는다 */
 @media (prefers-reduced-motion: reduce) {
   .ongoing::before, .timeline-bar.live::after { animation: none; }
+}
+
+
+/* ---------- 다크 파생 ----------
+   토큰 이름은 그대로 두고 값만 바꾼다. 아래 두 블록이 모두 필요하다:
+     · prefers-color-scheme  — 운영체제 설정을 따른다 (대부분의 사용자)
+     · [data-theme="dark"]   — 나중에 수동 토글을 붙일 자리
+   관제 콘솔 안에서 실측한 값이다. 글자 역할 토큰은 모두 7:1 이상이고,
+   채움 역할(--l2)은 경보의 무게를 잃지 않도록 밝은 적색을 유지한다. */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-2: #1f2630;
+    --fixture: #262c38;
+
+    --text: #e6edf3;
+    --muted: #b0b9c5;
+
+    --line: #262e3a;
+    --line-strong: #617086;
+    --rule-strong: #e6edf3;
+
+    --accent: #79c0ff;
+    --focus: #79c0ff;
+
+    --ok-bg: #12291b;
+    --ok-text: #53c563;
+    --bad-bg: #2b1410;
+    --bad-text: #ff816b;
+
+    --l2: #ff5a3d;
+    --l2-bg: #2b1410;
+    --l2-text: #ff816b;
+    --l2-line: #ff5a3d;
+    --l1-bg: #2a2009;
+    --l1-text: #ffb224;
+    --l1-line: #ffb224;
+    --l3-bg: #121e33;
+    --l3-text: #68abff;
+    --l3-line: #54a0ff;
+
+    --on-l2: #000000;
+    --l2-hover: #ff7a63;
+
+    --plan-l2-fill: #4a1d14;
+    --day-clean: #2a323e;
+    --bar-radar: #ff5a3d;
+    --bar-rf: #54a0ff;
+    --tick: rgba(13, 17, 23, 0.6);
+    --device-bad-line: #ff5a3d;
+    --nav-fg: #b0b9c5;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-2: #1f2630;
+  --fixture: #262c38;
+
+  --text: #e6edf3;
+  --muted: #b0b9c5;
+
+  --line: #262e3a;
+  --line-strong: #617086;
+  --rule-strong: #e6edf3;
+
+  --accent: #79c0ff;
+  --focus: #79c0ff;
+
+  --ok-bg: #12291b;
+  --ok-text: #53c563;
+  --bad-bg: #2b1410;
+  --bad-text: #ff816b;
+
+  --l2: #ff5a3d;
+  --l2-bg: #2b1410;
+  --l2-text: #ff816b;
+  --l2-line: #ff5a3d;
+  --l1-bg: #2a2009;
+  --l1-text: #ffb224;
+  --l1-line: #ffb224;
+  --l3-bg: #121e33;
+  --l3-text: #68abff;
+  --l3-line: #54a0ff;
+
+  --on-l2: #000000;
+  --l2-hover: #ff7a63;
+
+  --plan-l2-fill: #4a1d14;
+  --day-clean: #2a323e;
+  --bar-radar: #ff5a3d;
+  --bar-rf: #54a0ff;
+  --tick: rgba(13, 17, 23, 0.6);
+  --device-bad-line: #ff5a3d;
+  --nav-fg: #b0b9c5;
 }

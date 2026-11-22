@@ -30,7 +30,13 @@
         else view.openHistory.delete(details.dataset.key);
       }
 
-      root.replaceChildren(...(alert ? render(alert, view) : missing(alertId, state.loaded)));
+      if (!alert) {
+        root.replaceChildren(...missing(alertId, state.loaded));
+        return;
+      }
+      const { nodes, drawLater } = render(alert, view);
+      root.replaceChildren(...nodes);
+      if (drawLater) drawLater(); // 화면에 붙은 뒤라야 평면도가 글자 크기를 잴 수 있다
     }
 
     update({ kind: "all" });
@@ -46,7 +52,7 @@
     const head = element("section", `panel detail-head ${alert.grade}`);
     const tags = element("div", "head");
     tags.append(
-      gradeBadge(alert.grade),
+      gradeBadge(alert.grade, { source: true }), // 상세는 자리가 넉넉하니 근거 장비까지 보인다
       element("span", `status ${alert.status}`, alert.status === "unacked" ? "미확인" : "확인됨"),
     );
     if (store.isOngoing(alert.alert_id)) tags.append(ongoingTag(alert));
@@ -71,16 +77,21 @@
     planHead.append(element("h2", "", "위치"));
     if (alert.roi) planHead.append(link(`#/space/${alert.roi}`, "more", "3D로 보기 →"));
     planPanel.append(planHead);
+    let drawLater = null;
     if (state.room) {
       const svg = plan.createSvg("경보 위치 평면도");
-      plan.drawPlan(svg, state.room, alert.roi ? new Map([[alert.roi, alert.grade]]) : new Map());
       planPanel.append(svg);
+      // 그리기는 화면에 붙은 뒤로 미룬다. 구역 이름 자리를 getBBox()로 재는데
+      // 문서에 없는 요소는 크기가 0으로 나와 위치 보정이 건너뛰어진다
+      drawLater = () =>
+        plan.drawPlan(svg, state.room, alert.roi ? new Map([[alert.roi, alert.grade]]) : new Map());
+      if (alert.roi) planPanel.append(plan.legend());
       if (!alert.roi) planPanel.append(element("p", "muted small", "RF만으로 판단한 경보라 위치를 모릅니다."));
     }
 
     const layout = element("div", "layout");
     layout.append(evidencePanel, planPanel);
-    return [crumbs, head, timeline(alert, store.isOngoing(alert.alert_id)), layout];
+    return { nodes: [crumbs, head, timeline(alert, store.isOngoing(alert.alert_id)), layout], drawLater };
   }
 
   // 시간 흐름: 판단 근거의 사건 묶음마다 한 줄 (레이더 사건, RF 판단).

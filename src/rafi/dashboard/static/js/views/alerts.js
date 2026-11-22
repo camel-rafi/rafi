@@ -6,7 +6,7 @@
 (function (RaFi) {
   "use strict";
 
-  const { element, link, where, gradeBadge, evidenceList, ackControls, syncList, timeLabel, ongoingTag, isToday, dayKey, dayLabel, byPriority, GRADE } = RaFi.dom;
+  const { element, link, where, gradeBadge, gradeText, evidenceList, ackControls, syncList, timeLabel, ongoingTag, isToday, dayKey, dayLabel, byPriority, GRADE } = RaFi.dom;
   const { store } = RaFi;
 
   const LOAD_LIMIT = 500; // api.js의 처음 읽기와 같은 값
@@ -62,7 +62,7 @@
         else filters.grades.delete(grade);
         render();
       });
-      label.append(input, grade);
+      label.append(input, gradeText(grade));
       gradeBox.append(label);
     }
     controls.append(gradeBox);
