@@ -7,15 +7,47 @@
   const { store, plan } = RaFi;
 
   const DAY_MINUTES = 24 * 60;
+  const LIGHT_ORDER = ["L1", "L2", "L3"];
+  // 표시등 설명. 불이 켜졌을 때(그 등급 미확인 경보가 있을 때)만 보인다 (style.css)
+  const LIGHT_TEXT = {
+    L1: "수상한 행동이 감지되었습니다.",
+    L2: "수상한 행동과 카메라 전파가 함께 감지되었습니다.",
+    L3: "카메라 전파가 감지되었습니다.",
+  };
 
   function mount(root) {
-    const summary = element("section", "summary");
-    const unackedValue = summaryCard(summary, "미확인 경보");
-    const todayValue = summaryCard(summary, "오늘 경보");
+    // 등급 표시등: 그 등급의 미확인 경보가 있으면 불이 들어온다. 누르면 그 등급의 미확인 경보 목록으로 간다
+    const lights = element("section", "grade-lights");
+    lights.setAttribute("aria-label", "등급별 미확인 경보");
+    const lamps = new Map();
+    for (const grade of LIGHT_ORDER) {
+      const lamp = link("#/alerts", `grade-light ${grade}`);
+      lamp.addEventListener("click", () => RaFi.views.alerts.showGrade(grade));
+      const count = element("span", "lamp-count", "-");
+      const body = element("span", "lamp-body");
+      body.append(element("span", "lamp-name", grade), element("span", "lamp-text", LIGHT_TEXT[grade]));
+      lamp.append(element("span", "lamp"), body, count);
+      lights.append(lamp);
+      lamps.set(grade, { lamp, count });
+    }
+
+    // 요약: 칸 하나 안의 한 줄짜리 표 (위는 제목, 아래는 값)
+    const summary = element("section", "panel summary-panel");
+    const table = element("table", "summary-table");
+    const headRow = element("tr");
+    const valueRow = element("tr");
+    const thead = element("thead");
+    const tbody = element("tbody");
+    thead.append(headRow);
+    tbody.append(valueRow);
+    table.append(thead, tbody);
+    summary.append(table);
+    const unackedValue = summaryCell(headRow, valueRow, "미확인 경보");
+    const todayValue = summaryCell(headRow, valueRow, "오늘 경보");
     const todayCount = element("span", "", "-");
     const todaySub = element("span", "sub");
     todayValue.replaceChildren(todayCount, " ", todaySub);
-    const lastSeenValue = summaryCard(summary, "마지막 수신");
+    const lastSeenValue = summaryCell(headRow, valueRow, "마지막 수신");
 
     const queuePanel = element("section", "panel");
     const queueHead = element("div", "panel-head");
@@ -49,7 +81,7 @@
     main.append(queuePanel, dayPanel);
     const layout = element("div", "layout");
     layout.append(main, planPanel);
-    root.append(summary, layout);
+    root.append(lights, summary, layout);
 
     function drawDay() {
       const { state } = store;
@@ -102,6 +134,12 @@
         unackedValue.textContent = unacked.length;
         todayCount.textContent = today.length;
         todaySub.textContent = cleaning ? `(청소 시간대 ${cleaning})` : "";
+        for (const [grade, { lamp, count }] of lamps) {
+          const n = unacked.filter((a) => a.grade === grade).length;
+          lamp.classList.toggle("on", n > 0);
+          count.textContent = n ? `${n}건` : "없음";
+          lamp.setAttribute("aria-label", `${GRADE[grade].label} 미확인 ${n}건. 누르면 경보 목록으로 갑니다`);
+        }
       }
 
       syncList(queue, unacked, {
@@ -122,11 +160,12 @@
     return { update };
   }
 
-  function summaryCard(parent, label) {
-    const card = element("div", "card");
-    const value = element("p", "value", "-");
-    card.append(element("p", "label", label), value);
-    parent.append(card);
+  function summaryCell(headRow, valueRow, label) {
+    const head = element("th", "", label);
+    head.scope = "col";
+    const value = element("td", "value", "-");
+    headRow.append(head);
+    valueRow.append(value);
     return value;
   }
 

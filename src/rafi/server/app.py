@@ -41,6 +41,16 @@ DASHBOARD_DIR = Path(__file__).parents[1] / "dashboard" / "static"
 DEVICE_CHECK_SEC = 1
 
 
+class DashboardFiles(StaticFiles):
+    """대시보드 파일. 캐시 헤더가 없으면 브라우저가 몇 시간씩 예전 CSS·JS를 쓰므로
+    매번 서버에 바뀌었는지 물어보게 한다 (바뀌지 않았으면 304로 짧게 끝난다)."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 def create_app(
     config_path: str | Path = DEFAULT_CONFIG_PATH,
     db_path: str | Path = DEFAULT_DB_PATH,
@@ -172,6 +182,6 @@ def create_app(
         return request.app.state.storage.list_messages(limit)
 
     # API 경로를 모두 등록한 뒤에 둔다. 나머지 경로는 대시보드 파일로 응답한다
-    app.mount("/", StaticFiles(directory=DASHBOARD_DIR, html=True), name="dashboard")
+    app.mount("/", DashboardFiles(directory=DASHBOARD_DIR, html=True), name="dashboard")
 
     return app

@@ -241,6 +241,15 @@
     return item;
   }
 
+  // 개요의 등급 표시등에서 들어올 때: 그 등급의 미확인 경보만 보이게 조건을 맞춘다 (화면이 열리기 전에 부른다)
+  function showGrade(grade) {
+    filters.period = "all";
+    filters.status = "unacked";
+    filters.grades = new Set([grade]);
+    filters.roi = "";
+    filters.skipCleaning = false;
+  }
+
   RaFi.views = RaFi.views || {};
-  RaFi.views.alerts = { mount };
+  RaFi.views.alerts = { mount, showGrade };
 })((window.RaFi = window.RaFi || {}));
