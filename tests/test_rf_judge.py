@@ -7,7 +7,9 @@ T0 = datetime(2026, 11, 7, 12, 0, tzinfo=UTC)
 ENOUGH = 20_000
 
 
-def window(second: int, bytes_up: int = ENOUGH, device: str = "cam-01", sec: int = 1) -> RfWindow:
+def window(
+    second: int, bytes_up: int = ENOUGH, device: str = "cam-01", sec: int = 1, rssi: float | None = -50
+) -> RfWindow:
     stats = RfDeviceStats(
         device=device,
         frames_up=10,
@@ -16,7 +18,7 @@ def window(second: int, bytes_up: int = ENOUGH, device: str = "cam-01", sec: int
         bytes_down=100,
         size_p50=1000,
         size_p90=1400,
-        rssi_mean=-50,
+        rssi_mean=rssi,
     )
     return RfWindow(
         window_start=T0 + timedelta(seconds=second), window_sec=sec, devices=[stats]
@@ -44,6 +46,20 @@ def test_candidate_after_sustained_uplink():
     assert candidate.event_end == T0 + timedelta(seconds=15)
     assert candidate.method == METHOD
     assert candidate.rssi_mean == -50
+
+
+def test_rssi_mean_skips_windows_without_rssi():
+    judge = RfJudge()
+    feed(judge, range(10), rssi=None)
+    feed(judge, range(10, 13), rssi=-40)
+    candidates = feed(judge, range(13, 15), rssi=-60)
+    assert candidates[0].rssi_mean == -48  # (-40*3 + -60*2) / 5
+
+
+def test_candidate_without_any_rssi():
+    candidates = feed(RfJudge(), range(15), rssi=None)
+    assert len(candidates) == 1
+    assert candidates[0].rssi_mean is None
 
 
 def test_only_one_candidate_per_transmission():

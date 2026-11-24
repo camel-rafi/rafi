@@ -101,7 +101,7 @@ class RfDeviceStats(Model):
     size_p90: NonNegativeFloat
     gap_mean_ms: NonNegativeFloat | None = None  # 프레임이 1개면 간격을 계산할 수 없다
     gap_std_ms: NonNegativeFloat | None = None
-    rssi_mean: float
+    rssi_mean: float | None = None  # RSSI를 못 읽은 창
 
 
 class RfWindow(Model):

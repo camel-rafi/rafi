@@ -22,7 +22,7 @@ class _Transmission:
     end: datetime
     bytes_up: int = 0
     rssi_total: float = 0.0
-    window_count: int = 0
+    rssi_count: int = 0  # RSSI가 있던 창 수. 없는 창은 평균에서 뺀다
     active_sec: int = 0  # 공백을 뺀, 임계값을 넘은 시간
     reported: bool = False
 
@@ -50,8 +50,9 @@ class RfJudge:
 
             transmission.end = max(transmission.end, window_end)
             transmission.bytes_up += stats.bytes_up
-            transmission.rssi_total += stats.rssi_mean
-            transmission.window_count += 1
+            if stats.rssi_mean is not None:
+                transmission.rssi_total += stats.rssi_mean
+                transmission.rssi_count += 1
             transmission.active_sec += window.window_sec
 
             if not transmission.reported and transmission.end - transmission.start >= SUSTAIN:
@@ -63,12 +64,13 @@ class RfJudge:
 def _candidate(device: str, transmission: _Transmission) -> Detection:
     duration = (transmission.end - transmission.start).total_seconds()
     rate = transmission.bytes_up / transmission.active_sec
+    rssi_mean = transmission.rssi_total / transmission.rssi_count if transmission.rssi_count else None
     return Detection(
         source="rf",
         event_start=transmission.start,
         event_end=transmission.end,
         device=device,
-        rssi_mean=transmission.rssi_total / transmission.window_count,
+        rssi_mean=rssi_mean,
         score=SCORE,
         method=METHOD,
         reasons=[f"업링크 평균 {rate:,.0f} B/s, {duration:.0f}초 지속"],

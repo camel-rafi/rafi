@@ -121,6 +121,14 @@ def test_rf_window_allows_missing_gap_for_single_frame():
     parse_sensor_message(envelope("rf.window", {**RF_WINDOW, "devices": [device]}))
 
 
+def test_rf_window_allows_missing_rssi():
+    with_null = {**RF_WINDOW["devices"][0], "rssi_mean": None}
+    without_key = {k: v for k, v in RF_WINDOW["devices"][0].items() if k != "rssi_mean"}
+    for device in (with_null, without_key):
+        message = parse_sensor_message(envelope("rf.window", {**RF_WINDOW, "devices": [device]}))
+        assert message.payload.devices[0].rssi_mean is None
+
+
 @pytest.mark.parametrize(
     "overrides",
     [
